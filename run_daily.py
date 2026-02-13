@@ -19,6 +19,7 @@ Usage:
 import argparse
 import logging
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -194,6 +195,39 @@ def run_pipeline(config: dict, dry_run: bool = False,
                 logger.error(f"  Dashboard generatie mislukt: {e}", exc_info=True)
         else:
             logger.warning("  Geen vergelijkingsdata, dashboard overgeslagen")
+
+    # --- Phase 4: Git auto-push (voor Streamlit Cloud) ---
+    total_records = sum(r.get("records", 0) for r in scrape_results.values())
+    git_auto_push = config.get("automation", {}).get("git_auto_push", False)
+    if git_auto_push and not dry_run and total_records > 0:
+        logger.info("\n--- Database pushen naar GitHub ---")
+        try:
+            project_dir = os.path.dirname(os.path.abspath(__file__))
+            git_run = lambda cmd: subprocess.run(
+                cmd, cwd=project_dir, capture_output=True, text=True, timeout=60,
+            )
+            # Stage only the database file
+            result = git_run(["git", "add", db_path])
+            if result.returncode != 0:
+                raise RuntimeError(f"git add failed: {result.stderr}")
+
+            # Check if there are staged changes
+            result = git_run(["git", "diff", "--cached", "--quiet"])
+            if result.returncode == 0:
+                logger.info("  Geen wijzigingen in database, push overgeslagen")
+            else:
+                msg = f"Auto-update prijsdata {today}"
+                result = git_run(["git", "commit", "-m", msg])
+                if result.returncode != 0:
+                    raise RuntimeError(f"git commit failed: {result.stderr}")
+
+                result = git_run(["git", "push"])
+                if result.returncode != 0:
+                    raise RuntimeError(f"git push failed: {result.stderr}")
+
+                logger.info("  Database gepusht naar GitHub")
+        except Exception as e:
+            logger.error(f"  Git push mislukt: {e}")
 
     # --- Samenvatting ---
     total_duration = time.time() - start_time

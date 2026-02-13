@@ -108,6 +108,8 @@ automation:
   max_retry_attempts: 1
   generate_dashboard: true
   generate_analytics: true
+  # Auto-push database to GitHub after scrape (for Streamlit Cloud)
+  git_auto_push: true
 
 # Dashboard settings
 dashboard:
