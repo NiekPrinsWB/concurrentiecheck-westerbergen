@@ -336,6 +336,8 @@ class BeerzeBultenScraper(BaseScraper):
         all_records = []
         seen_keys = set()
         errors = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 3
 
         with sync_playwright() as playwright:
             browser = self._create_browser(playwright)
@@ -351,10 +353,28 @@ class BeerzeBultenScraper(BaseScraper):
                 for page_num in range(1, max_pages + 1):
                     try:
                         page.wait_for_selector(".price-grid-table", timeout=15000)
+                        consecutive_failures = 0
                     except PlaywrightTimeout:
-                        self.logger.warning(f"Page {page_num}: no price grid found")
+                        consecutive_failures += 1
                         errors += 1
-                        break
+                        self.logger.warning(
+                            f"Page {page_num}: no price grid found "
+                            f"({consecutive_failures}/{max_consecutive_failures})"
+                        )
+                        if consecutive_failures >= max_consecutive_failures:
+                            self.logger.warning("Too many consecutive failures, stopping")
+                            break
+                        # Try to continue to next page
+                        later_url = self._get_later_url(page)
+                        if later_url:
+                            later_url = self._build_url_with_guests(later_url, persons)
+                            self._wait_rate_limit()
+                            page.goto(later_url, wait_until="domcontentloaded", timeout=60000)
+                            time.sleep(2)
+                        else:
+                            self.logger.info("  No 'Later' link found, stopping.")
+                            break
+                        continue
 
                     time.sleep(1)
 
