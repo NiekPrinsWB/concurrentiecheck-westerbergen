@@ -1,0 +1,117 @@
+# Concurrentiecheck Westerbergen - Configuration
+# ================================================
+
+# General settings
+general:
+  project_name: "Concurrentiecheck Westerbergen"
+  database_path: "data/concurrentiecheck.db"
+  log_dir: "logs"
+  log_level: "INFO"
+
+# Scraping settings
+scraping:
+  # Rate limiting: minimum seconds between requests to same domain
+  rate_limit_seconds: 5
+  # Maximum retries per scraper
+  max_retries: 3
+  # Timeout for page loads (seconds)
+  page_timeout: 60
+  # Browser headless mode (true for production, false for debugging)
+  headless: true
+  # Number of persons to search for
+  default_persons: 4
+  # Days ahead to check prices
+  check_days_ahead: [7, 14, 21, 30, 45, 60, 90]
+  # Check both weekend (fri-sun) and midweek (mon-fri) stays
+  stay_types:
+    weekend:
+      check_in_day: "friday"
+      nights: 2
+    midweek:
+      check_in_day: "monday"
+      nights: 4
+    week:
+      check_in_day: "friday"
+      nights: 7
+
+# Westerbergen own prices (manually updated for comparison)
+westerbergen:
+  name: "Westerbergen"
+  accommodation: "Bungalow"
+  # Update these regularly or add scraper for own site
+  base_prices: {}
+
+# Competitors configuration
+competitors:
+  beerze_bulten:
+    name: "Beerze Bulten"
+    accommodation: "Luxe Bungalow"
+    url: "https://www.beerzebulten.nl/accommodaties/bungalow"
+    enabled: true
+    persons: 4
+
+  camping_ommerland:
+    name: "Camping Ommerland"
+    accommodation: "Bos Villa (6p)"
+    url: "https://www.ommerland.nl/huren/bos-villa"
+    enabled: true
+    persons: 4
+
+  witter_zomer:
+    name: "Witter Zomer"
+    accommodation: "6-persoons vakantiehuis (C6)"
+    url: "https://www.witterzomer.nl/accommodaties/nederland-drenthe-6-persoons-vakantiehuis-c6"
+    enabled: true
+    persons: 4
+
+  de_witte_berg:
+    name: "De Witte Berg"
+    accommodation: "Bungalow Dennenlust"
+    url: "https://www.dewitteberg.nl/"
+    enabled: true
+    persons: 4
+    search_term: "Bungalow Dennenlust"
+
+  de_boshoek:
+    name: "De Boshoek"
+    accommodation: "Bungalow Zeumeren"
+    url: "https://www.deboshoek.nl/"
+    enabled: true
+    persons: 4
+    search_term: "Bungalow Zeumeren"
+
+  eiland_van_maurik:
+    name: "Eiland van Maurik"
+    accommodation: "EilandLodge (6 persoons)"
+    url: "https://www.eilandvanmaurik.nl/accommodaties/eilandlodge-6"
+    enabled: true
+    persons: 4
+
+# Email notification settings
+email:
+  enabled: false
+  smtp_server: ""
+  smtp_port: 587
+  sender: ""
+  password: ""
+  recipients: []
+  # Send alerts on these events:
+  alert_on_error: true
+  alert_on_opportunity: true
+  weekly_summary: true
+  weekly_summary_day: "monday"
+
+# Automation settings (dagelijkse pipeline)
+automation:
+  schedule_time: "07:00"
+  retry_failed: true
+  max_retry_attempts: 1
+  generate_dashboard: true
+  generate_analytics: true
+
+# Dashboard settings
+dashboard:
+  output_dir: "data"
+  filename_template: "concurrentiecheck_{date}.xlsx"
+  # Keep last N dashboard files
+  keep_last: 30

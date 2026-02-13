@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Generated output
+data/*.xlsx
+
+# Debug screenshots
+debug_*.png
+data/screenshots/
+
+# Test artifacts
+.pytest_cache/
+data/test_*.xlsx
+data/test_*.db
+
+# Old/unused database
+data/prices.db
+
+# Windows Task Scheduler
+run_daily.bat
+
+# Claude Code settings
+.claude/
+
+# Dev/debug scripts
+scrapers/analyze_all.py
+scrapers/analyze_deep.py
+scrapers/test_apis.py
+
+# Misc
+nul
+STREAMLIT_PROMPT.md
+test_beerze.py
