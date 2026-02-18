@@ -36,7 +36,17 @@ def run_analytics(db_path: str = "data/concurrentiecheck.db",
 
     if not comparison_data:
         print("Geen vergelijkbare data gevonden.")
-        return {"metadata": {"comparison_count": 0}, "comparison_data": []}
+        return {
+            "metadata": {"comparison_count": 0, "competitors": []},
+            "comparison_data": [],
+            "price_index": [],
+            "price_per_night": [],
+            "competitive_position": [],
+            "availability_gaps": {},
+            "seasonal_patterns": {},
+            "price_changes": {"status": "onvoldoende_data", "changes": []},
+            "recommendations": [],
+        }
 
     # Determine actual scrape_date used
     actual_date = scrape_date or db.get_latest_scrape_date()
