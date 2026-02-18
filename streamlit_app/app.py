@@ -99,8 +99,11 @@ with st.sidebar:
     )
 
     analytics = load_analytics(db_path, selected_date)
-    meta = analytics["metadata"]
-    competitors = meta["competitors"]
+    meta = analytics.get("metadata", {})
+    competitors = meta.get("competitors", sorted(set(
+        comp for row in analytics.get("comparison_data", [])
+        for comp in row.get("competitors", {}).keys()
+    )))
 
     st.markdown("---")
     selected_competitors = st.multiselect("CONCURRENTEN", competitors, default=competitors)
