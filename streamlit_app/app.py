@@ -108,7 +108,7 @@ with st.sidebar:
     st.markdown("---")
     selected_competitors = st.multiselect("CONCURRENTEN", competitors, default=competitors)
 
-    all_stay_types = sorted(set(r["stay_type"] for r in analytics["comparison_data"]))
+    all_stay_types = sorted(set(r["stay_type"] for r in analytics.get("comparison_data", [])))
     selected_stay_types = st.multiselect(
         "VERBLIJFSTYPE", all_stay_types, default=all_stay_types,
         format_func=lambda x: STAY_LABELS.get(x, x),
@@ -121,7 +121,7 @@ with st.sidebar:
 # ── Data voorbereiden ───────────────────────────────────────────
 # Bouw één plat DataFrame van alle comparison_data
 rows = []
-for row in analytics["comparison_data"]:
+for row in analytics.get("comparison_data", []):
     if row["stay_type"] not in selected_stay_types:
         continue
     base = {
@@ -149,7 +149,7 @@ df = pd.DataFrame(rows) if rows else pd.DataFrame()
 
 # Prijsindex data
 pi_rows = []
-for p in analytics["price_index"]:
+for p in analytics.get("price_index", []):
     if p["stay_type"] not in selected_stay_types:
         continue
     if p["competitor"] not in selected_competitors:
@@ -159,7 +159,7 @@ df_pi = pd.DataFrame(pi_rows) if pi_rows else pd.DataFrame()
 
 # Positie data
 pos_rows = []
-for p in analytics["competitive_position"]:
+for p in analytics.get("competitive_position", []):
     if p["stay_type"] not in selected_stay_types:
         continue
     pos_rows.append(p)
@@ -242,7 +242,7 @@ with tab_markt:
                 st.plotly_chart(styled_fig(fig, "Ranking verdeling", 300), use_container_width=True)
 
         # ── Seizoenslijn ────────────────────────────────────────────
-        by_month = analytics["seasonal_patterns"].get("by_month", {})
+        by_month = analytics.get("seasonal_patterns", {}).get("by_month", {})
         if by_month:
             months = sorted(by_month.keys())
             fig = go.Figure()
@@ -496,9 +496,9 @@ with tab_systeem:
 
     # Datadekking
     st.markdown("### Datadekking per concurrent")
-    total = len(analytics["comparison_data"])
+    total = len(analytics.get("comparison_data", []))
     cov = {}
-    for row in analytics["comparison_data"]:
+    for row in analytics.get("comparison_data", []):
         for comp, info in row.get("competitors", {}).items():
             if info.get("price") is not None:
                 cov[comp] = cov.get(comp, 0) + 1
@@ -518,10 +518,10 @@ with tab_systeem:
     c1.metric("Scrape-datums", len(dates))
     db_mb = os.path.getsize(db_path) / (1024 * 1024) if os.path.exists(db_path) else 0
     c2.metric("Database", f"{db_mb:.1f} MB")
-    c3.metric("Vergelijkingen", meta["comparison_count"])
+    c3.metric("Vergelijkingen", meta.get("comparison_count", 0))
 
     # Prijswijzigingen
-    changes = analytics["price_changes"]
+    changes = analytics.get("price_changes", {})
     st.markdown("---")
     st.markdown("### Prijswijzigingen")
     if changes.get("status") == "onvoldoende_data":
