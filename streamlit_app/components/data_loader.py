@@ -33,8 +33,11 @@ def load_analytics(db_path: str, scrape_date: str = None,
 @st.cache_data(ttl=300)
 def get_available_segments(db_path: str, scrape_date: str = None) -> list[str]:
     """Beschikbare segmenten voor een scrape-datum."""
-    db = Database(db_path)
-    return db.get_available_segments(scrape_date)
+    try:
+        db = Database(db_path)
+        return db.get_available_segments(scrape_date)
+    except Exception:
+        return ["accommodatie"]
 
 
 @st.cache_data(ttl=300)
