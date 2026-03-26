@@ -326,6 +326,12 @@ class Database:
         """Get distinct segments that have data for a given scrape date."""
         conn = self._get_conn()
         try:
+            # Check if segment column exists (backwards compat with old DBs)
+            cursor = conn.execute("PRAGMA table_info(prices)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "segment" not in columns:
+                return ["accommodatie"]
+
             if scrape_date:
                 rows = conn.execute(
                     "SELECT DISTINCT segment FROM prices WHERE scrape_date = ? AND price IS NOT NULL ORDER BY segment",
@@ -335,7 +341,7 @@ class Database:
                 rows = conn.execute(
                     "SELECT DISTINCT segment FROM prices WHERE price IS NOT NULL ORDER BY segment"
                 ).fetchall()
-            return [row[0] for row in rows]
+            return [row[0] for row in rows] or ["accommodatie"]
         finally:
             conn.close()
 
