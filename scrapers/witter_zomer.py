@@ -185,8 +185,8 @@ class WitterZomerScraper(BaseScraper):
 
         return result_records, has_next
 
-    def run_efficient(self, months_ahead: int = 3, persons: int = 4,
-                      max_pages: int = 30, **kwargs) -> list[dict]:
+    def run_efficient(self, months_ahead: int = 12, persons: int = 4,
+                      max_pages: int = 100, **kwargs) -> list[dict]:
         """Scrape prices by loading the widget and paginating through dates.
 
         Reads prices from the rendered DOM to capture promotional discounts
@@ -206,6 +206,7 @@ class WitterZomerScraper(BaseScraper):
         all_records = []
         seen_keys = set()
         errors = 0
+        empty_pages = 0  # Track consecutive pages with no new data
 
         with sync_playwright() as playwright:
             browser = self._create_browser(playwright)
@@ -240,6 +241,7 @@ class WitterZomerScraper(BaseScraper):
                             "competitor_name": self.competitor_name,
                             "accommodation_type": self.accommodation_type,
                             "persons": persons,
+                            "segment": getattr(self, 'segment', 'accommodatie'),
                             **r,
                         }
                         self.db.save_price(**record)
@@ -253,6 +255,15 @@ class WitterZomerScraper(BaseScraper):
                         f"  Page {page_num} (up to {max_date_seen or '?'}): "
                         f"{new_count} new prices"
                     )
+
+                    # Stop if multiple consecutive pages have no data
+                    if new_count == 0:
+                        empty_pages += 1
+                        if empty_pages >= 5:
+                            self.logger.info("  5 consecutive empty pages, stopping.")
+                            break
+                    else:
+                        empty_pages = 0
 
                     # Check if we've passed the target end date
                     if max_date_seen and max_date_seen >= target_end_str:
@@ -295,6 +306,7 @@ class WitterZomerScraper(BaseScraper):
             records_scraped=len(all_records),
             error_message=f"{errors} errors" if errors else None,
             duration_seconds=duration,
+            segment=getattr(self, 'segment', 'accommodatie'),
         )
 
         available = [r for r in all_records if r["available"] and r["price"]]

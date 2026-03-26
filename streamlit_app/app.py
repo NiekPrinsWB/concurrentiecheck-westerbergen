@@ -21,7 +21,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from components.styles import get_custom_css, COLORS, CHART_COLORS, STAY_LABELS
-from components.data_loader import get_db_path, load_analytics, get_available_dates, get_scrape_status
+from components.data_loader import get_db_path, load_analytics, get_available_dates, get_scrape_status, get_available_segments
 
 # ── Page Config ─────────────────────────────────────────────────
 st.set_page_config(
@@ -98,7 +98,23 @@ with st.sidebar:
         format_func=lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%d-%m-%Y"),
     )
 
-    analytics = load_analytics(db_path, selected_date)
+    # Segment selector
+    SEGMENT_LABELS = {
+        "accommodatie": "Accommodaties",
+        "kampeerplaats": "Kampeerplaatsen",
+        "prive_sanitair": "Privé sanitair",
+    }
+    segments = get_available_segments(db_path, selected_date)
+    if not segments:
+        segments = ["accommodatie"]
+    selected_segment = st.radio(
+        "SEGMENT",
+        segments,
+        format_func=lambda s: SEGMENT_LABELS.get(s, s),
+        index=0,
+    )
+
+    analytics = load_analytics(db_path, selected_date, segment=selected_segment)
     meta = analytics.get("metadata", {})
     competitors = meta.get("competitors", sorted(set(
         comp for row in analytics.get("comparison_data", [])
@@ -115,7 +131,8 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.caption(f"{meta['comparison_count']} vergelijkingen · {len(competitors)} concurrenten")
+    segment_label = SEGMENT_LABELS.get(selected_segment, selected_segment)
+    st.caption(f"{segment_label} · {meta['comparison_count']} vergelijkingen · {len(competitors)} concurrenten")
 
 
 # ── Data voorbereiden ───────────────────────────────────────────

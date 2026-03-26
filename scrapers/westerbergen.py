@@ -36,10 +36,14 @@ class WesterbergenScraper(BaseScraper):
 
     # objectType=354 and rental=169 correspond to Bosbungalow Sequoia C6
     OBJECT_TYPE = "354"
-    RENTAL_ID = "169"
+    RENTAL_ID = "169"       # single ID or first in list
+    RENTAL_IDS = ["169"]    # all rental IDs needed for API calls
 
     # Stay durations to track (matching competitor scrapers)
     STAY_DURATIONS = [2, 3, 4, 7]
+
+    # Segment for database storage
+    SEGMENT = "accommodatie"
 
     def __init__(self, db: Database, headless: bool = True, **kwargs):
         super().__init__(
@@ -54,7 +58,7 @@ class WesterbergenScraper(BaseScraper):
     def scrape_price(self, page, check_in, check_out, persons=4):
         raise NotImplementedError("Use run_efficient()")
 
-    def run_efficient(self, months_ahead: int = 3, persons: int = 4,
+    def run_efficient(self, months_ahead: int = 12, persons: int = 4,
                       **kwargs) -> list[dict]:
         """Scrape prices using the booking page REST API.
 
@@ -121,9 +125,12 @@ class WesterbergenScraper(BaseScraper):
                         const headers = {'X-Requested-With': 'XMLHttpRequest'};
                         const months = params.months;
                         const objectType = params.objectType;
-                        const rentalId = params.rentalId;
+                        const rentalIds = params.rentalIds;
                         const durations = params.durations;
                         const persons = params.persons;
+
+                        // Build rental[] query string from list of IDs
+                        const rentalParam = rentalIds.map(id => '&rental[]=' + id).join('');
 
                         // Step 1: Get available dates for all months
                         const datePromises = months.map(([y, m]) =>
@@ -131,7 +138,7 @@ class WesterbergenScraper(BaseScraper):
                                 + '?language=nl&year=' + y
                                 + '&month=' + String(m).padStart(2, '0')
                                 + '&objectType=' + objectType
-                                + '&rental[]=' + rentalId
+                                + rentalParam
                                 + '&package=all',
                                 {headers}
                             )
@@ -164,7 +171,7 @@ class WesterbergenScraper(BaseScraper):
                                     + '&year=' + year
                                     + '&month=' + month
                                     + '&day=' + day
-                                    + '&rental[]=' + rentalId,
+                                    + rentalParam,
                                     {headers}
                                 )
                                 .then(r => r.json())
@@ -193,7 +200,7 @@ class WesterbergenScraper(BaseScraper):
                 """, {
                     "months": year_months,
                     "objectType": self.OBJECT_TYPE,
-                    "rentalId": self.RENTAL_ID,
+                    "rentalIds": self.RENTAL_IDS,
                     "durations": self.STAY_DURATIONS,
                     "persons": persons,
                 })
@@ -248,6 +255,7 @@ class WesterbergenScraper(BaseScraper):
                         "min_nights": nights,
                         "special_offers": special,
                         "persons": persons,
+                        "segment": self.SEGMENT,
                     }
                     self.db.save_price(**record)
                     all_records.append(record)
@@ -276,3 +284,63 @@ class WesterbergenScraper(BaseScraper):
         )
 
         return all_records
+
+
+class WesterbergenCampingScraper(WesterbergenScraper):
+    """Westerbergen — Comfort kampeerplaats."""
+
+    BOOKING_URL = (
+        "https://www.westerbergen.nl/kamperen/kampeerplaats-comfort"
+        "/boeken?type%5B0%5D=166&type%5B1%5D=7083"
+    )
+    OBJECT_TYPE = "342"
+    RENTAL_ID = "166"
+    RENTAL_IDS = ["166", "7083"]  # Both rental IDs required by the API
+    SEGMENT = "kampeerplaats"
+
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        # Skip WesterbergenScraper.__init__, call BaseScraper directly
+        BaseScraper.__init__(
+            self,
+            competitor_name="Westerbergen",
+            accommodation_type="Comfort kampeerplaats",
+            url="https://www.westerbergen.nl/kamperen/kampeerplaats-comfort",
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+
+    def run_efficient(self, months_ahead: int = 12, persons: int = 2,
+                      **kwargs) -> list[dict]:
+        return super().run_efficient(months_ahead=months_ahead, persons=persons,
+                                     **kwargs)
+
+
+class WesterbergenPsanitairScraper(WesterbergenScraper):
+    """Westerbergen — Privé sanitair kampeerplaats (comfortplus)."""
+
+    BOOKING_URL = (
+        "https://www.westerbergen.nl/kamperen"
+        "/kampeerplaats-comfortplus-prive-sanitair"
+        "/boeken?type%5B0%5D=166&type%5B1%5D=7083"
+    )
+    OBJECT_TYPE = "922"
+    RENTAL_ID = "7083"
+    RENTAL_IDS = ["166", "7083"]  # Both rental IDs required by the API
+    SEGMENT = "prive_sanitair"
+
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        BaseScraper.__init__(
+            self,
+            competitor_name="Westerbergen",
+            accommodation_type="Privé sanitair kampeerplaats",
+            url="https://www.westerbergen.nl/kamperen/kampeerplaats-comfortplus-prive-sanitair",
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+
+    def run_efficient(self, months_ahead: int = 12, persons: int = 2,
+                      **kwargs) -> list[dict]:
+        return super().run_efficient(months_ahead=months_ahead, persons=persons,
+                                     **kwargs)

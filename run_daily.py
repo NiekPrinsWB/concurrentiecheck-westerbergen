@@ -22,7 +22,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import yaml
 
@@ -86,13 +86,21 @@ def run_pipeline(config: dict, dry_run: bool = False,
 
         logger.info(f"Scrapers te draaien: {', '.join(to_run.keys())}")
 
+        # Scrape 12 months ahead
+        days_ahead = 365
+        months_ahead = 12
+        target_end_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+        max_pages = days_ahead // 3 + 10  # ~130 pages for BookingExperts
+
         # First pass
         for key, scraper in to_run.items():
             logger.info(f"\n--- Scraping: {scraper.competitor_name} ---")
             t0 = time.time()
             try:
                 results = scraper.run_efficient(
-                    max_pages=30,
+                    max_pages=max_pages,
+                    months_ahead=months_ahead,
+                    target_end_date=target_end_date,
                     persons=persons,
                 )
                 available = [r for r in results if r.get("available") and r.get("price")]
@@ -132,7 +140,9 @@ def run_pipeline(config: dict, dry_run: bool = False,
                     t0 = time.time()
                     try:
                         results = scraper.run_efficient(
-                            max_pages=30,
+                            max_pages=max_pages,
+                            months_ahead=months_ahead,
+                            target_end_date=target_end_date,
                             persons=persons,
                         )
                         available = [r for r in results if r.get("available") and r.get("price")]
@@ -156,45 +166,63 @@ def run_pipeline(config: dict, dry_run: bool = False,
                         failed_scrapers.append(key)
                         logger.error(f"    Retry mislukt: {e}")
 
-    # --- Phase 2: Analytics ---
-    analytics_result = None
-    excel_path = None
+    # --- Phase 2 & 3: Analytics + Excel Dashboard per segment ---
+    analytics_result = None  # Will hold the 'accommodatie' result for backwards compat
+    analytics_results = {}   # All segments
+    excel_paths = []
 
     generate_analytics = config.get("automation", {}).get("generate_analytics", True)
     should_generate_dashboard = config.get("automation", {}).get("generate_dashboard", True)
 
-    if generate_analytics or should_generate_dashboard:
-        logger.info("\n--- Analytics berekenen ---")
-        try:
-            from analytics import run_analytics
-            analytics_result = run_analytics(
-                db_path=db_path,
-                scrape_date=today if not skip_scrape else None,
-                print_to_console=True,
-            )
-            comparison_count = analytics_result.get("metadata", {}).get("comparison_count", 0)
-            rec_count = len(analytics_result.get("recommendations", []))
-            logger.info(f"  {comparison_count} vergelijkingen, {rec_count} prijsadviezen")
-        except Exception as e:
-            logger.error(f"  Analytics mislukt: {e}", exc_info=True)
+    SEGMENT_LABELS = {
+        "accommodatie": "Accommodaties",
+        "kampeerplaats": "Kampeerplaatsen",
+        "prive_sanitair": "Privé sanitair",
+    }
 
-    # --- Phase 3: Excel Dashboard ---
-    if should_generate_dashboard and analytics_result:
-        comparison_count = analytics_result.get("metadata", {}).get("comparison_count", 0)
-        if comparison_count > 0:
-            logger.info("\n--- Excel dashboard genereren ---")
+    if generate_analytics or should_generate_dashboard:
+        from analytics import run_analytics
+        from dashboard import generate_dashboard
+
+        # Determine which segments have data
+        segments = db.get_available_segments(today if not skip_scrape else None)
+        if not segments:
+            segments = ["accommodatie"]
+
+        for segment in segments:
+            label = SEGMENT_LABELS.get(segment, segment)
+            logger.info(f"\n--- Analytics: {label} ---")
             try:
-                from dashboard import generate_dashboard
-                dashboard_config = config.get("dashboard", {})
-                excel_path = generate_dashboard(
-                    analytics_result=analytics_result,
-                    config=dashboard_config,
+                seg_result = run_analytics(
+                    db_path=db_path,
+                    scrape_date=today if not skip_scrape else None,
+                    segment=segment,
+                    print_to_console=True,
                 )
-                logger.info(f"  Dashboard: {excel_path}")
+                analytics_results[segment] = seg_result
+                comparison_count = seg_result.get("metadata", {}).get("comparison_count", 0)
+                rec_count = len(seg_result.get("recommendations", []))
+                logger.info(f"  {comparison_count} vergelijkingen, {rec_count} prijsadviezen")
+
+                # Generate Excel dashboard for this segment
+                if should_generate_dashboard and comparison_count > 0:
+                    try:
+                        dashboard_config = config.get("dashboard", {})
+                        excel_path = generate_dashboard(
+                            analytics_result=seg_result,
+                            config=dashboard_config,
+                        )
+                        excel_paths.append(excel_path)
+                        logger.info(f"  Dashboard: {excel_path}")
+                    except Exception as e:
+                        logger.error(f"  Dashboard generatie mislukt: {e}", exc_info=True)
+
             except Exception as e:
-                logger.error(f"  Dashboard generatie mislukt: {e}", exc_info=True)
-        else:
-            logger.warning("  Geen vergelijkingsdata, dashboard overgeslagen")
+                logger.error(f"  Analytics mislukt voor {label}: {e}", exc_info=True)
+
+        # Keep accommodatie result as primary for backwards compat (email etc)
+        analytics_result = analytics_results.get("accommodatie")
+    excel_path = excel_paths[0] if excel_paths else None
 
     # --- Phase 4: Git auto-push (voor Streamlit Cloud) ---
     total_records = sum(r.get("records", 0) for r in scrape_results.values())
@@ -247,13 +275,15 @@ def run_pipeline(config: dict, dry_run: bool = False,
         logger.info(f"  Totaal records:  {total_records}")
         logger.info(f"  Beschikbaar:     {total_available}")
 
-    if analytics_result:
-        meta = analytics_result.get("metadata", {})
-        logger.info(f"  Vergelijkingen:  {meta.get('comparison_count', 0)}")
-        logger.info(f"  Prijsadviezen:   {len(analytics_result.get('recommendations', []))}")
+    if analytics_results:
+        for seg, seg_result in analytics_results.items():
+            meta = seg_result.get("metadata", {})
+            label = SEGMENT_LABELS.get(seg, seg)
+            logger.info(f"  [{label}] {meta.get('comparison_count', 0)} vergelijkingen, "
+                        f"{len(seg_result.get('recommendations', []))} adviezen")
 
-    if excel_path:
-        logger.info(f"  Dashboard:       {excel_path}")
+    for ep in excel_paths:
+        logger.info(f"  Dashboard:       {ep}")
 
     if scrape_results:
         logger.info("\n  Per scraper:")
@@ -268,6 +298,19 @@ def run_pipeline(config: dict, dry_run: bool = False,
             logger.info(line)
 
     logger.info("=" * 60)
+
+    # --- Phase 5: E-mail rapport versturen ---
+    if not dry_run and scrape_results:
+        logger.info("\n--- E-mail rapport versturen ---")
+        try:
+            from email_report import send_report
+            send_report(
+                scrape_results=scrape_results,
+                excel_path=excel_path,
+                total_duration=total_duration,
+            )
+        except Exception as e:
+            logger.error(f"  E-mail versturen mislukt: {e}", exc_info=True)
 
     # Determine exit code
     if dry_run or skip_scrape:

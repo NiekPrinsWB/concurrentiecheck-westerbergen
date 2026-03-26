@@ -19,13 +19,22 @@ def get_db_path() -> str:
 
 
 @st.cache_data(ttl=300)
-def load_analytics(db_path: str, scrape_date: str = None) -> dict:
+def load_analytics(db_path: str, scrape_date: str = None,
+                   segment: str = None) -> dict:
     """Laad analytics resultaten met 5 min cache."""
     return run_analytics(
         db_path=db_path,
         scrape_date=scrape_date,
+        segment=segment,
         print_to_console=False,
     )
+
+
+@st.cache_data(ttl=300)
+def get_available_segments(db_path: str, scrape_date: str = None) -> list[str]:
+    """Beschikbare segmenten voor een scrape-datum."""
+    db = Database(db_path)
+    return db.get_available_segments(scrape_date)
 
 
 @st.cache_data(ttl=300)

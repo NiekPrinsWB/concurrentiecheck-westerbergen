@@ -305,8 +305,8 @@ class BeerzeBultenScraper(BaseScraper):
         sep = "&" if "?" in url else "?"
         return f"{url}{sep}guest_group%5Badults%5D={persons}"
 
-    def run_efficient(self, max_pages: int = 30, target_end_date: str = None,
-                      persons: int = None) -> list[dict]:
+    def run_efficient(self, max_pages: int = 120, target_end_date: str = None,
+                      persons: int = None, **kwargs) -> list[dict]:
         """Efficiently scrape by navigating through grid pages using 'Later' link.
 
         The grid shows 7 days at a time, and the 'Later' link shifts ~3 days forward.
@@ -324,7 +324,7 @@ class BeerzeBultenScraper(BaseScraper):
             persons = self.DEFAULT_PERSONS
 
         if target_end_date is None:
-            target_end = datetime.now() + timedelta(days=90)
+            target_end = datetime.now() + timedelta(days=365)
             target_end_date = target_end.strftime("%Y-%m-%d")
 
         self.logger.info(
@@ -347,12 +347,16 @@ class BeerzeBultenScraper(BaseScraper):
                 # Start at the base URL with guest count
                 start_url = self._build_url_with_guests(persons=persons)
                 page.goto(start_url, wait_until="domcontentloaded", timeout=60000)
-                time.sleep(3)
+                time.sleep(2)
                 self._accept_cookies(page)
+
+                # Scroll to reservation section to trigger lazy-loading of price grid
+                page.evaluate('document.getElementById("reservation_section")?.scrollIntoView()')
+                time.sleep(1)
 
                 for page_num in range(1, max_pages + 1):
                     try:
-                        page.wait_for_selector(".price-grid-table", timeout=15000)
+                        page.wait_for_selector(".price-grid-table", timeout=30000)
                         consecutive_failures = 0
                     except PlaywrightTimeout:
                         consecutive_failures += 1
@@ -370,10 +374,17 @@ class BeerzeBultenScraper(BaseScraper):
                             later_url = self._build_url_with_guests(later_url, persons)
                             self._wait_rate_limit()
                             page.goto(later_url, wait_until="domcontentloaded", timeout=60000)
+                            page.evaluate('document.getElementById("reservation_section")?.scrollIntoView()')
                             time.sleep(2)
                         else:
-                            self.logger.info("  No 'Later' link found, stopping.")
-                            break
+                            # No Later link - reload current page to retry
+                            self.logger.info(f"  No 'Later' link, reloading page to retry...")
+                            self._wait_rate_limit()
+                            page.reload(wait_until="domcontentloaded", timeout=60000)
+                            time.sleep(2)
+                            self._accept_cookies(page)
+                            page.evaluate('document.getElementById("reservation_section")?.scrollIntoView()')
+                            time.sleep(2)
                         continue
 
                     time.sleep(1)
@@ -421,6 +432,7 @@ class BeerzeBultenScraper(BaseScraper):
                                 "min_nights": entry["nights"],
                                 "special_offers": None,
                                 "persons": persons,
+                                "segment": getattr(self, 'segment', 'accommodatie'),
                             }
                             self.db.save_price(**record)
                             all_records.append(record)
@@ -453,6 +465,7 @@ class BeerzeBultenScraper(BaseScraper):
 
                     self._wait_rate_limit()
                     page.goto(later_url, wait_until="domcontentloaded", timeout=60000)
+                    page.evaluate('document.getElementById("reservation_section")?.scrollIntoView()')
                     time.sleep(2)
 
             finally:
@@ -467,6 +480,7 @@ class BeerzeBultenScraper(BaseScraper):
             records_scraped=len(all_records),
             error_message=f"{errors} week(s) failed" if errors else None,
             duration_seconds=duration,
+            segment=getattr(self, 'segment', 'accommodatie'),
         )
 
         self.logger.info(
@@ -475,3 +489,45 @@ class BeerzeBultenScraper(BaseScraper):
         )
 
         return all_records
+
+
+class BeerzeBultenCampingScraper(BeerzeBultenScraper):
+    """Beerze Bulten — Comfortplaats (kampeerplaats segment)."""
+
+    DEFAULT_PERSONS = 2
+
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        BaseScraper.__init__(
+            self,
+            competitor_name="Beerze Bulten",
+            accommodation_type="Comfortplaats",
+            url="https://www.beerzebulten.nl/kamperen/comfortplaats",
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+        self.segment = "kampeerplaats"
+
+    def run_efficient(self, persons: int = 2, **kwargs) -> list[dict]:
+        return super().run_efficient(persons=persons, **kwargs)
+
+
+class BeerzeBultenPsanitairScraper(BeerzeBultenScraper):
+    """Beerze Bulten — Comfortplaats met privé sanitair."""
+
+    DEFAULT_PERSONS = 2
+
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        BaseScraper.__init__(
+            self,
+            competitor_name="Beerze Bulten",
+            accommodation_type="Comfortplaats met privé sanitair",
+            url="https://www.beerzebulten.nl/kamperen/comfortplaats-met-prive-sanitair",
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+        self.segment = "prive_sanitair"
+
+    def run_efficient(self, persons: int = 2, **kwargs) -> list[dict]:
+        return super().run_efficient(persons=persons, **kwargs)

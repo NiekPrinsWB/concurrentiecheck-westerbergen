@@ -35,7 +35,8 @@ def classify_stay(check_in_date: str, nights: int) -> str:
         return f"{nights}_nachten"
 
 
-def load_comparison_data(db, scrape_date: str = None) -> list[dict]:
+def load_comparison_data(db, scrape_date: str = None,
+                         segment: str = None) -> list[dict]:
     """Load and normalize all price data into comparison rows.
 
     Each row represents one (check_in_date, nights) combination with
@@ -48,7 +49,7 @@ def load_comparison_data(db, scrape_date: str = None) -> list[dict]:
         if scrape_date is None:
             return []
 
-    raw = db.get_comparison_data(scrape_date, CANONICAL_DURATIONS)
+    raw = db.get_comparison_data(scrape_date, CANONICAL_DURATIONS, segment=segment)
     today = datetime.now().date()
 
     # Group by (check_in_date, nights)

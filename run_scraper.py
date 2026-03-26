@@ -11,17 +11,30 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import yaml
 
 from database import Database
-from scrapers.beerze_bulten import BeerzeBultenScraper
-from scrapers.holidayagent_scraper import CampingOmmerlandScraper, EilandVanMaurikScraper
+from scrapers.beerze_bulten import (
+    BeerzeBultenScraper, BeerzeBultenCampingScraper, BeerzeBultenPsanitairScraper
+)
+from scrapers.holidayagent_scraper import (
+    CampingOmmerlandScraper, EilandVanMaurikScraper,
+    CampingOmmerlandCampingScraper, CampingOmmerlandPsanitairScraper,
+    EilandVanMaurikCampingScraper,
+)
 from scrapers.witter_zomer import WitterZomerScraper
 from scrapers.de_witte_berg import DeWitteBergScraper
 from scrapers.de_boshoek import DeBoshoekScraper
-from scrapers.westerbergen import WesterbergenScraper
+from scrapers.westerbergen import (
+    WesterbergenScraper, WesterbergenCampingScraper, WesterbergenPsanitairScraper
+)
+from scrapers.centerparcs_scraper import CenterParcsScraper
+from scrapers.molecaten_scraper import MolecatenKuierpadBosvenScraper, MolecatenKuierpadCampingScraper
+from scrapers.zandstuve_scraper import (
+    ZandstuveBoslodgeScraper, ZandstuveCampingScraper, ZandstuvePsanitairScraper
+)
 
 
 def setup_logging(log_dir: str = "logs", level: str = "INFO"):
@@ -66,14 +79,36 @@ def load_config(config_path: str = "config/settings.yaml") -> dict:
 
 def get_scraper_map(db: Database, headless: bool):
     """Return mapping of competitor key -> scraper instance."""
+    # Volgorde: API-scrapers eerst (snel, geen browser), dan BookingExperts
+    # scrapers gespreid om rate-limiting te voorkomen.
     return {
-        "beerze_bulten": BeerzeBultenScraper(db=db, headless=headless),
+        # --- API-only scrapers (snel, geen browser) ---
+        "centerparcs_sandur": CenterParcsScraper(db=db, headless=headless),
+        "molecaten_bosven": MolecatenKuierpadBosvenScraper(db=db, headless=headless),
+        "molecaten_camping": MolecatenKuierpadCampingScraper(db=db, headless=headless),
         "camping_ommerland": CampingOmmerlandScraper(db=db, headless=headless),
+        "ommerland_camping": CampingOmmerlandCampingScraper(db=db, headless=headless),
+        "ommerland_psanitair": CampingOmmerlandPsanitairScraper(db=db, headless=headless),
         "eiland_van_maurik": EilandVanMaurikScraper(db=db, headless=headless),
-        "witter_zomer": WitterZomerScraper(db=db, headless=headless),
-        "de_witte_berg": DeWitteBergScraper(db=db, headless=headless),
+        "maurik_camping": EilandVanMaurikCampingScraper(db=db, headless=headless),
+
+        # --- BookingExperts scrapers (browser, gespreid) ---
         "de_boshoek": DeBoshoekScraper(db=db, headless=headless),
+        "zandstuve_boslodge": ZandstuveBoslodgeScraper(db=db, headless=headless),
+        "beerze_bulten": BeerzeBultenScraper(db=db, headless=headless),
+        "bb_camping": BeerzeBultenCampingScraper(db=db, headless=headless),
+        "zandstuve_camping": ZandstuveCampingScraper(db=db, headless=headless),
+        "de_witte_berg": DeWitteBergScraper(db=db, headless=headless),
+        "bb_psanitair": BeerzeBultenPsanitairScraper(db=db, headless=headless),
+        "zandstuve_psanitair": ZandstuvePsanitairScraper(db=db, headless=headless),
+
+        # --- Other browser scrapers ---
+        "witter_zomer": WitterZomerScraper(db=db, headless=headless),
+
+        # --- Westerbergen (eigen park, alle segmenten) ---
         "westerbergen": WesterbergenScraper(db=db, headless=headless),
+        "westerbergen_camping": WesterbergenCampingScraper(db=db, headless=headless),
+        "westerbergen_psanitair": WesterbergenPsanitairScraper(db=db, headless=headless),
     }
 
 
@@ -86,8 +121,8 @@ def main():
         help="Run only a specific competitor (key from config)",
     )
     parser.add_argument(
-        "--days", "-d", type=int, default=90,
-        help="Days ahead to scrape (default: 90)",
+        "--days", "-d", type=int, default=365,
+        help="Days ahead to scrape (default: 365)",
     )
     parser.add_argument(
         "--visible", "-v", action="store_true",
@@ -146,11 +181,19 @@ def main():
     total_records = 0
     total_errors = 0
 
+    # Convert days to months for scrapers that use months_ahead
+    months_ahead = max(1, args.days // 30)
+    target_end_date = (datetime.now() + timedelta(days=args.days)).strftime("%Y-%m-%d")
+    # BookingExperts pages: ~3 days per page step
+    max_pages = max(30, args.days // 3 + 10)
+
     for key, scraper in to_run.items():
         logger.info(f"\n--- Running: {scraper.competitor_name} ---")
         try:
             results = scraper.run_efficient(
-                max_pages=30,
+                max_pages=max_pages,
+                months_ahead=months_ahead,
+                target_end_date=target_end_date,
                 persons=config.get("scraping", {}).get("default_persons", 4),
             )
             available = [r for r in results if r.get("available") and r.get("price")]

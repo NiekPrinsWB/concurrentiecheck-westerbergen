@@ -14,6 +14,74 @@ class Database:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._init_db()
 
+    def _migrate(self, conn: sqlite3.Connection):
+        """Add new columns to existing databases and fix UNIQUE constraints."""
+        cursor = conn.execute("PRAGMA table_info(prices)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        # Check if UNIQUE constraint includes segment
+        needs_rebuild = False
+        if "segment" not in columns:
+            needs_rebuild = True
+        else:
+            # Check if UNIQUE constraint already includes segment
+            table_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='prices'"
+            ).fetchone()[0]
+            if "scrape_date, segment)" not in table_sql:
+                needs_rebuild = True
+
+        if needs_rebuild:
+            # Determine source columns for data copy
+            src_cols = (
+                "id, competitor_name, accommodation_type, check_in_date, "
+                "check_out_date, price, available, min_nights, special_offers, "
+                "persons, scrape_timestamp, scrape_date"
+            )
+            if "segment" in columns:
+                src_cols += ", segment"
+            if "surcharges" in columns:
+                src_cols += ", surcharges"
+
+            conn.executescript(f"""
+                CREATE TABLE prices_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competitor_name TEXT NOT NULL,
+                    accommodation_type TEXT NOT NULL,
+                    check_in_date TEXT NOT NULL,
+                    check_out_date TEXT NOT NULL,
+                    price REAL,
+                    available INTEGER NOT NULL DEFAULT 1,
+                    min_nights INTEGER,
+                    special_offers TEXT,
+                    persons INTEGER DEFAULT 4,
+                    scrape_timestamp TEXT NOT NULL,
+                    scrape_date TEXT NOT NULL,
+                    segment TEXT NOT NULL DEFAULT 'accommodatie',
+                    surcharges TEXT,
+                    UNIQUE(competitor_name, check_in_date, check_out_date, scrape_date, segment)
+                );
+
+                INSERT INTO prices_new ({src_cols})
+                SELECT {src_cols} FROM prices;
+
+                DROP TABLE prices;
+                ALTER TABLE prices_new RENAME TO prices;
+
+                CREATE INDEX IF NOT EXISTS idx_prices_competitor
+                    ON prices(competitor_name);
+                CREATE INDEX IF NOT EXISTS idx_prices_checkin
+                    ON prices(check_in_date);
+                CREATE INDEX IF NOT EXISTS idx_prices_scrape_date
+                    ON prices(scrape_date);
+            """)
+
+        cursor2 = conn.execute("PRAGMA table_info(scrape_log)")
+        log_columns = {row[1] for row in cursor2.fetchall()}
+        if "segment" not in log_columns:
+            conn.execute("ALTER TABLE scrape_log ADD COLUMN segment TEXT DEFAULT 'accommodatie'")
+            conn.commit()
+
     def _get_conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -23,6 +91,7 @@ class Database:
     def _init_db(self):
         conn = self._get_conn()
         try:
+            # Create tables (without segment-dependent indexes, those come after migration)
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS prices (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,7 +106,9 @@ class Database:
                     persons INTEGER DEFAULT 4,
                     scrape_timestamp TEXT NOT NULL,
                     scrape_date TEXT NOT NULL,
-                    UNIQUE(competitor_name, check_in_date, check_out_date, scrape_date)
+                    segment TEXT NOT NULL DEFAULT 'accommodatie',
+                    surcharges TEXT,
+                    UNIQUE(competitor_name, check_in_date, check_out_date, scrape_date, segment)
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_prices_competitor
@@ -54,8 +125,17 @@ class Database:
                     status TEXT NOT NULL,
                     records_scraped INTEGER DEFAULT 0,
                     error_message TEXT,
-                    duration_seconds REAL
+                    duration_seconds REAL,
+                    segment TEXT DEFAULT 'accommodatie'
                 );
+            """)
+            conn.commit()
+            # Migrate existing databases: add segment column if missing
+            self._migrate(conn)
+            # Create segment index after migration ensures column exists
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_prices_segment
+                ON prices(segment)
             """)
             conn.commit()
         finally:
@@ -64,8 +144,9 @@ class Database:
     def save_price(self, competitor_name: str, accommodation_type: str,
                    check_in_date: str, check_out_date: str, price: float,
                    available: bool = True, min_nights: int = None,
-                   special_offers: str = None, persons: int = 4):
-        """Save a single price record. Updates if same competitor+dates+scrape_date exists."""
+                   special_offers: str = None, persons: int = 4,
+                   segment: str = "accommodatie", surcharges: str = None):
+        """Save a single price record. Updates if same competitor+dates+scrape_date+segment exists."""
         now = datetime.now()
         conn = self._get_conn()
         try:
@@ -73,9 +154,10 @@ class Database:
                 INSERT INTO prices (
                     competitor_name, accommodation_type, check_in_date,
                     check_out_date, price, available, min_nights,
-                    special_offers, persons, scrape_timestamp, scrape_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(competitor_name, check_in_date, check_out_date, scrape_date)
+                    special_offers, persons, scrape_timestamp, scrape_date,
+                    segment, surcharges
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(competitor_name, check_in_date, check_out_date, scrape_date, segment)
                 DO UPDATE SET
                     price = CASE WHEN excluded.price IS NOT NULL THEN excluded.price ELSE prices.price END,
                     available = CASE WHEN excluded.price IS NOT NULL THEN excluded.available ELSE prices.available END,
@@ -83,11 +165,13 @@ class Database:
                     special_offers = excluded.special_offers,
                     accommodation_type = excluded.accommodation_type,
                     persons = excluded.persons,
-                    scrape_timestamp = excluded.scrape_timestamp
+                    scrape_timestamp = excluded.scrape_timestamp,
+                    surcharges = excluded.surcharges
             """, (
                 competitor_name, accommodation_type, check_in_date,
                 check_out_date, price, int(available), min_nights,
-                special_offers, persons, now.isoformat(), now.strftime("%Y-%m-%d")
+                special_offers, persons, now.isoformat(), now.strftime("%Y-%m-%d"),
+                segment, surcharges
             ))
             conn.commit()
         finally:
@@ -100,18 +184,18 @@ class Database:
 
     def log_scrape(self, competitor_name: str, status: str,
                    records_scraped: int = 0, error_message: str = None,
-                   duration_seconds: float = None):
+                   duration_seconds: float = None, segment: str = "accommodatie"):
         """Log a scrape attempt."""
         conn = self._get_conn()
         try:
             conn.execute("""
                 INSERT INTO scrape_log (
                     competitor_name, timestamp, status,
-                    records_scraped, error_message, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    records_scraped, error_message, duration_seconds, segment
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 competitor_name, datetime.now().isoformat(), status,
-                records_scraped, error_message, duration_seconds
+                records_scraped, error_message, duration_seconds, segment
             ))
             conn.commit()
         finally:
@@ -199,12 +283,20 @@ class Database:
             conn.close()
 
     def get_comparison_data(self, scrape_date: str,
-                            durations: list[int] = None) -> list[dict]:
-        """Get all prices for a scrape date, filtered to canonical durations."""
+                            durations: list[int] = None,
+                            segment: str = None) -> list[dict]:
+        """Get all prices for a scrape date, filtered to canonical durations and segment."""
         if durations is None:
             durations = [2, 3, 4, 7]
 
         placeholders = ",".join("?" * len(durations))
+        params = [scrape_date] + durations
+
+        segment_clause = ""
+        if segment:
+            segment_clause = " AND segment = ?"
+            params.append(segment)
+
         query = f"""
             SELECT
                 competitor_name,
@@ -214,17 +306,36 @@ class Database:
                 price,
                 available,
                 special_offers,
+                segment,
                 CAST(ROUND(julianday(check_out_date) - julianday(check_in_date)) AS INTEGER) AS nights
             FROM prices
             WHERE scrape_date = ?
               AND price IS NOT NULL
               AND CAST(ROUND(julianday(check_out_date) - julianday(check_in_date)) AS INTEGER) IN ({placeholders})
+              {segment_clause}
             ORDER BY check_in_date, competitor_name
         """
         conn = self._get_conn()
         try:
-            rows = conn.execute(query, [scrape_date] + durations).fetchall()
+            rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+    def get_available_segments(self, scrape_date: str = None) -> list[str]:
+        """Get distinct segments that have data for a given scrape date."""
+        conn = self._get_conn()
+        try:
+            if scrape_date:
+                rows = conn.execute(
+                    "SELECT DISTINCT segment FROM prices WHERE scrape_date = ? AND price IS NOT NULL ORDER BY segment",
+                    (scrape_date,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT DISTINCT segment FROM prices WHERE price IS NOT NULL ORDER BY segment"
+                ).fetchall()
+            return [row[0] for row in rows]
         finally:
             conn.close()
 

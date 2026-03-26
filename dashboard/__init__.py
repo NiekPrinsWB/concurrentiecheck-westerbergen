@@ -27,8 +27,9 @@ def generate_dashboard(analytics_result: dict, config: dict = None,
     config = config or {}
 
     if output_path is None:
+        meta = analytics_result.get("metadata", {})
         output_path = _build_output_path(
-            config, analytics_result.get("metadata", {}).get("scrape_date")
+            config, meta.get("scrape_date"), segment=meta.get("segment")
         )
 
     # Ensure output directory exists
@@ -46,12 +47,16 @@ def generate_dashboard(analytics_result: dict, config: dict = None,
     return output_path
 
 
-def _build_output_path(config: dict, scrape_date: str = None) -> str:
+def _build_output_path(config: dict, scrape_date: str = None,
+                       segment: str = None) -> str:
     """Build the output file path from config template."""
     output_dir = config.get("output_dir", "data")
-    template = config.get("filename_template", "concurrentiecheck_{date}.xlsx")
     date_str = scrape_date or datetime.now().strftime("%Y-%m-%d")
-    filename = template.format(date=date_str)
+    if segment:
+        filename = f"concurrentiecheck_{segment}_{date_str}.xlsx"
+    else:
+        template = config.get("filename_template", "concurrentiecheck_{date}.xlsx")
+        filename = template.format(date=date_str)
     os.makedirs(output_dir, exist_ok=True)
     return os.path.join(output_dir, filename)
 

@@ -28,6 +28,13 @@ STAY_LABELS = {
 }
 
 
+SEGMENT_LABELS = {
+    "accommodatie": "Accommodaties",
+    "kampeerplaats": "Kampeerplaatsen",
+    "prive_sanitair": "Privé sanitair",
+}
+
+
 class ExcelDashboard:
     """Generate a professional Excel dashboard from analytics results."""
 
@@ -37,6 +44,8 @@ class ExcelDashboard:
         self.workbook = None
         self._formats = {}
         self.competitors = sorted(self.data.get("metadata", {}).get("competitors", []))
+        self.segment = self.data.get("metadata", {}).get("segment")
+        self.segment_label = SEGMENT_LABELS.get(self.segment, self.segment or "Alle segmenten")
 
     def generate(self, output_path: str) -> str:
         """Create the workbook, write all sheets, close, return path."""
@@ -203,9 +212,11 @@ class ExcelDashboard:
         meta = self.data["metadata"]
 
         # Title
-        ws.merge_range("A1:H1", "CONCURRENTIECHECK WESTERBERGEN", f["title"])
+        title = f"CONCURRENTIECHECK WESTERBERGEN — {self.segment_label.upper()}"
+        ws.merge_range("A1:H1", title, f["title"])
         ws.write(1, 0, f"Rapport datum: {datetime.now().strftime('%d-%m-%Y')}  |  "
                        f"Scrape: {meta['scrape_date']}  |  "
+                       f"Segment: {self.segment_label}  |  "
                        f"{meta['comparison_count']} vergelijkingen", f["info"])
 
         # ── KPI Cards ──
@@ -351,8 +362,8 @@ class ExcelDashboard:
         ws.set_tab_color(WB_GREEN)
         f = self._formats
 
-        ws.merge_range("A1:F1", "PRIJSVERGELIJKING", f["title"])
-        ws.write(1, 0, "Prijzen per check-in datum en verblijfsduur", f["info"])
+        ws.merge_range("A1:F1", f"PRIJSVERGELIJKING — {self.segment_label}", f["title"])
+        ws.write(1, 0, f"Prijzen per check-in datum en verblijfsduur ({self.segment_label.lower()})", f["info"])
 
         row = 3
 
@@ -474,8 +485,8 @@ class ExcelDashboard:
         ws.set_tab_color('#4472C4')
         f = self._formats
 
-        ws.merge_range("A1:F1", "CONCURRENTENANALYSE", f["title"])
-        ws.write(1, 0, "Seizoenspatronen en prijsniveaus per concurrent", f["info"])
+        ws.merge_range("A1:F1", f"CONCURRENTENANALYSE — {self.segment_label}", f["title"])
+        ws.write(1, 0, f"Seizoenspatronen en prijsniveaus per concurrent ({self.segment_label.lower()})", f["info"])
 
         row = 3
         seasonal = self.data.get("seasonal_patterns", {})

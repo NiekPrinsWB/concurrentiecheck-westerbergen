@@ -22,6 +22,7 @@ from analytics.report import print_report
 
 def run_analytics(db_path: str = "data/concurrentiecheck.db",
                   scrape_date: str = None,
+                  segment: str = None,
                   print_to_console: bool = True) -> dict:
     """Run all analytics and return structured results.
 
@@ -32,7 +33,7 @@ def run_analytics(db_path: str = "data/concurrentiecheck.db",
     db = Database(db_path)
 
     # Step 1: Load and normalize data
-    comparison_data = load_comparison_data(db, scrape_date)
+    comparison_data = load_comparison_data(db, scrape_date, segment=segment)
 
     if not comparison_data:
         print("Geen vergelijkbare data gevonden.")
@@ -63,6 +64,7 @@ def run_analytics(db_path: str = "data/concurrentiecheck.db",
     result = {
         "metadata": {
             "scrape_date": actual_date,
+            "segment": segment,
             "run_timestamp": datetime.now().isoformat(),
             "comparison_count": len(comparison_data),
             "competitors": sorted(set(

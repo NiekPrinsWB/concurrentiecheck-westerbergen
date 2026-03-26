@@ -42,10 +42,13 @@ westerbergen:
   base_prices: {}
 
 # Competitors configuration
+# Segmenten: accommodatie, kampeerplaats, prive_sanitair
 competitors:
+  # === SEGMENT: ACCOMMODATIE ===
   beerze_bulten:
     name: "Beerze Bulten"
     accommodation: "Luxe Bungalow"
+    segment: "accommodatie"
     url: "https://www.beerzebulten.nl/accommodaties/bungalow"
     enabled: true
     persons: 4
@@ -53,6 +56,7 @@ competitors:
   camping_ommerland:
     name: "Camping Ommerland"
     accommodation: "Bos Villa (6p)"
+    segment: "accommodatie"
     url: "https://www.ommerland.nl/huren/bos-villa"
     enabled: true
     persons: 4
@@ -60,6 +64,7 @@ competitors:
   witter_zomer:
     name: "Witter Zomer"
     accommodation: "6-persoons vakantiehuis (C6)"
+    segment: "accommodatie"
     url: "https://www.witterzomer.nl/accommodaties/nederland-drenthe-6-persoons-vakantiehuis-c6"
     enabled: true
     persons: 4
@@ -67,43 +72,153 @@ competitors:
   de_witte_berg:
     name: "De Witte Berg"
     accommodation: "Bungalow Dennenlust"
+    segment: "accommodatie"
     url: "https://www.dewitteberg.nl/"
     enabled: true
     persons: 4
-    search_term: "Bungalow Dennenlust"
 
   de_boshoek:
     name: "De Boshoek"
     accommodation: "Bungalow Zeumeren"
+    segment: "accommodatie"
     url: "https://www.deboshoek.nl/"
     enabled: true
     persons: 4
-    search_term: "Bungalow Zeumeren"
 
   eiland_van_maurik:
     name: "Eiland van Maurik"
     accommodation: "EilandLodge (6 persoons)"
+    segment: "accommodatie"
     url: "https://www.eilandvanmaurik.nl/accommodaties/eilandlodge-6"
     enabled: true
     persons: 4
 
+  centerparcs_sandur:
+    name: "Center Parcs Parc Sandur"
+    accommodation: "Comfort cottage SR390 (6p)"
+    segment: "accommodatie"
+    url: "https://www.centerparcs.nl/nl-nl/nederland/fp_SR_vakantiepark-parc-sandur.htm"
+    enabled: true
+    persons: 6
+
+  molecaten_bosven:
+    name: "Molecaten Kuierpad"
+    accommodation: "Vakantiehuisje Bosven (6p)"
+    segment: "accommodatie"
+    url: "https://www.molecaten.nl/vakantiepark-kuierpad"
+    enabled: true
+    persons: 6
+
+  zandstuve_boslodge:
+    name: "De Zandstuve"
+    accommodation: "Boslodge DeLuxe (6p)"
+    segment: "accommodatie"
+    url: "https://www.zandstuve.com/accommodaties/nederland-overijssel-boslodge-deluxe-6-personen"
+    enabled: true
+    persons: 4
+
+  # === SEGMENT: KAMPEERPLAATS ===
+  molecaten_camping:
+    name: "Molecaten Kuierpad"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://www.molecaten.nl/vakantiepark-kuierpad"
+    enabled: true
+    persons: 2
+
+  bb_camping:
+    name: "Beerze Bulten"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://www.beerzebulten.nl/kamperen/comfortplaats"
+    enabled: true
+    persons: 2
+
+  zandstuve_camping:
+    name: "De Zandstuve"
+    accommodation: "Comfort camping site"
+    segment: "kampeerplaats"
+    url: "https://www.zandstuve.com/kamperen/nederland-overijssel-comfort-camping-site"
+    enabled: true
+    persons: 2
+
+  ommerland_camping:
+    name: "Camping Ommerland"
+    accommodation: "Basis Kampeerplaats"
+    segment: "kampeerplaats"
+    url: "https://www.ommerland.nl/kamperen/basis-kampeerplaats"
+    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    persons: 2
+
+  maurik_camping:
+    name: "Eiland van Maurik"
+    accommodation: "Kampeerplaats Eksche Waard"
+    segment: "kampeerplaats"
+    url: "https://www.eilandvanmaurik.nl/kampeerplaatsen"
+    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    persons: 2
+
+  # === SEGMENT: PRIVE SANITAIR ===
+  bb_psanitair:
+    name: "Beerze Bulten"
+    accommodation: "Comfortplaats met privé sanitair"
+    segment: "prive_sanitair"
+    url: "https://www.beerzebulten.nl/kamperen/comfortplaats-met-prive-sanitair"
+    enabled: true
+    persons: 2
+
+  zandstuve_psanitair:
+    name: "De Zandstuve"
+    accommodation: "Pitch with private bathroom"
+    segment: "prive_sanitair"
+    url: "https://www.zandstuve.com/kamperen/nederland-overijssel-pitch-with-private-bathroom"
+    enabled: true
+    persons: 2
+
+  ommerland_psanitair:
+    name: "Camping Ommerland"
+    accommodation: "Comfort Kampeerplaats Privé Sanitair"
+    segment: "prive_sanitair"
+    url: "https://www.ommerland.nl/kamperen/comfort-kampeerplaats-prive-sanitair"
+    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    persons: 2
+
+  # === WESTERBERGEN (eigen park, alle segmenten) ===
+  westerbergen:
+    name: "Westerbergen"
+    accommodation: "Bosbungalow Sequoia (C6)"
+    segment: "accommodatie"
+    url: "https://www.westerbergen.nl/accommodaties/bosbungalow-sequoia-c6"
+    enabled: true
+    persons: 4
+
+  westerbergen_camping:
+    name: "Westerbergen"
+    accommodation: "Comfort kampeerplaats"
+    segment: "kampeerplaats"
+    url: "https://www.westerbergen.nl/kamperen/comfort-kampeerplaats"
+    enabled: true
+    persons: 2
+
+  westerbergen_psanitair:
+    name: "Westerbergen"
+    accommodation: "Privé sanitair kampeerplaats"
+    segment: "prive_sanitair"
+    url: "https://www.westerbergen.nl/kamperen/prive-sanitair-kampeerplaats"
+    enabled: true
+    persons: 2
+
 # Email notification settings
+# SMTP credentials staan in .env (niet in git)
 email:
-  enabled: false
-  smtp_server: ""
-  smtp_port: 587
-  sender: ""
-  password: ""
-  recipients: []
-  # Send alerts on these events:
-  alert_on_error: true
-  alert_on_opportunity: true
-  weekly_summary: true
-  weekly_summary_day: "monday"
+  enabled: true
+  to: "nprins@westerbergen.nl"
+  cc: "jrgklein@westerbergen.nl"
 
 # Automation settings (dagelijkse pipeline)
 automation:
-  schedule_time: "07:00"
+  schedule_time: "10:00"
+  schedule_day: "friday"
   retry_failed: true
   max_retry_attempts: 1
   generate_dashboard: true

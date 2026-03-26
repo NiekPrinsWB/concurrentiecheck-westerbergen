@@ -42,6 +42,7 @@ class HolidayAgentScraper(BaseScraper):
         )
         self.resort_slug = resort_slug
         self.level_id = level_id
+        self.add_additional_price = True  # Override to False for camping (tourist tax already included)
         self.api_base = "https://api.holidayagent.nl/v1/resort"
         self.session = requests.Session()
         self.session.headers.update({
@@ -53,8 +54,11 @@ class HolidayAgentScraper(BaseScraper):
             "Accept": "application/json",
             "Referer": url,
         })
+        # For accommodations: additionalPrice = extra-guest surcharge (add to total)
+        # For camping pitches: additionalPrice = tourist tax (already in totalPrice)
+        self.add_additional_price = True
 
-    def _fetch_arrivals(self, months_ahead: int = 6) -> list[dict]:
+    def _fetch_arrivals(self, months_ahead: int = 12) -> list[dict]:
         """Fetch all arrival dates with prices from the API."""
         api_url = (
             f"{self.api_base}/{self.resort_slug}/arrivals"
@@ -76,7 +80,7 @@ class HolidayAgentScraper(BaseScraper):
         """Not used - we use run_efficient() with the API instead."""
         raise NotImplementedError("Use run_efficient() for HolidayAgent sites")
 
-    def run_efficient(self, months_ahead: int = 6, persons: int = 4,
+    def run_efficient(self, months_ahead: int = 12, persons: int = 4,
                       **kwargs) -> list[dict]:
         """Scrape all prices via the HolidayAgent REST API.
 
@@ -119,8 +123,9 @@ class HolidayAgentScraper(BaseScraper):
 
                         # additionalPrice = surcharge for extra guests (above base 2)
                         # For 4 persons: total = base + additional
+                        # For camping: additionalPrice is tourist tax already in totalPrice
                         total_price = base_price
-                        if base_price is not None and additional_price:
+                        if self.add_additional_price and base_price is not None and additional_price:
                             total_price = base_price + additional_price
 
                         # Filter for relevant stay durations
@@ -144,6 +149,7 @@ class HolidayAgentScraper(BaseScraper):
                             "min_nights": nights,
                             "special_offers": special_offers,
                             "persons": persons,
+                            "segment": getattr(self, 'segment', 'accommodatie'),
                         }
                         self.db.save_price(**record)
                         all_records.append(record)
@@ -164,6 +170,7 @@ class HolidayAgentScraper(BaseScraper):
             records_scraped=len(all_records),
             error_message=str(errors) + " errors" if errors else None,
             duration_seconds=duration,
+            segment=getattr(self, 'segment', 'accommodatie'),
         )
 
         available = [r for r in all_records if r["available"] and r["price"]]
@@ -201,3 +208,81 @@ class EilandVanMaurikScraper(HolidayAgentScraper):
             headless=headless,
             **kwargs,
         )
+
+
+class CampingOmmerlandCampingScraper(HolidayAgentScraper):
+    """Camping Ommerland — Basis Kampeerplaats (kampeerplaats segment).
+
+    NOTE: The HolidayAgent API only returns prices when using
+    booking_level IDs (from the website's booking widget), NOT
+    objecttype IDs. The objecttype 753744 returns null prices;
+    the booking_level 16634 returns actual prices.
+    """
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        super().__init__(
+            competitor_name="Camping Ommerland",
+            accommodation_type="Basis Kampeerplaats",
+            url="https://www.ommerland.nl/kamperen/basis-kampeerplaats-huisdiervrij",
+            resort_slug="campingommerland",
+            level_id="16634",  # booking_level (NOT objecttype 753744)
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+        self.segment = "kampeerplaats"
+        self.add_additional_price = False  # tourist tax already in totalPrice
+
+    def run_efficient(self, persons: int = 2, **kwargs) -> list[dict]:
+        return super().run_efficient(persons=persons, **kwargs)
+
+
+class CampingOmmerlandPsanitairScraper(HolidayAgentScraper):
+    """Camping Ommerland — Comfort Kampeerplaats Privé Sanitair.
+
+    NOTE: The HolidayAgent API only returns prices when using
+    booking_level IDs (from the website's booking widget), NOT
+    objecttype IDs. The objecttype 776250 returns null prices;
+    the booking_level 17345 returns actual prices.
+    """
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        super().__init__(
+            competitor_name="Camping Ommerland",
+            accommodation_type="Comfort Kampeerplaats Privé Sanitair",
+            url="https://www.ommerland.nl/kamperen/comfort-kampeerplaats-prive-sanitair-diervriendelijk",
+            resort_slug="campingommerland",
+            level_id="17345",  # booking_level (NOT objecttype 776250)
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+        self.segment = "prive_sanitair"
+        self.add_additional_price = False  # tourist tax already in totalPrice
+
+    def run_efficient(self, persons: int = 2, **kwargs) -> list[dict]:
+        return super().run_efficient(persons=persons, **kwargs)
+
+
+class EilandVanMaurikCampingScraper(HolidayAgentScraper):
+    """Eiland van Maurik — Kampeerplaats (kampeerplaats segment).
+
+    NOTE: The HolidayAgent API only returns prices when using
+    booking_level IDs (from the website's booking widget), NOT
+    objecttype IDs. The objecttype 989994 returns null prices;
+    the booking_level 2043 returns actual prices.
+    """
+    def __init__(self, db: Database, headless: bool = True, **kwargs):
+        super().__init__(
+            competitor_name="Eiland van Maurik",
+            accommodation_type="Kampeerplaats Eksche Waard",
+            url="https://www.eilandvanmaurik.nl/kampeerplaatsen",
+            resort_slug="eilandvanmaurik",
+            level_id="2043",  # booking_level (NOT objecttype 989994)
+            db=db,
+            headless=headless,
+            **kwargs,
+        )
+        self.segment = "kampeerplaats"
+        self.add_additional_price = False  # tourist tax already in totalPrice
+
+    def run_efficient(self, persons: int = 2, **kwargs) -> list[dict]:
+        return super().run_efficient(persons=persons, **kwargs)

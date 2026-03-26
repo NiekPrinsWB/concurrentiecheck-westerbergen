@@ -45,6 +45,9 @@ data/prices.db
 # Windows Task Scheduler
 run_daily.bat
 
+# Environment variables (SMTP credentials etc.)
+.env
+
 # Claude Code settings
 .claude/
 
