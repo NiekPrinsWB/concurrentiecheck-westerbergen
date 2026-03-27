@@ -323,56 +323,56 @@ class LandalScraper(BaseScraper):
                     arr_str = check_in_dt.strftime("%d-%m-%Y")
                     dep_str = check_out_dt.strftime("%d-%m-%Y")
 
-                        self._wait_rate_limit()
+                    self._wait_rate_limit()
 
-                        try:
-                            accommodations = self._search_prices(
-                                arr_str, dep_str, stay_type, persons
-                            )
-                        except Exception as e:
-                            self.logger.warning(
-                                f"  Search failed for {arr_str}->{dep_str}: {e}"
-                            )
-                            errors += 1
+                    try:
+                        accommodations = self._search_prices(
+                            arr_str, dep_str, stay_type, persons
+                        )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"  Search failed for {arr_str}->{dep_str}: {e}"
+                        )
+                        errors += 1
+                        continue
+
+                    # Filter for our target accommodation
+                    found = False
+                    for acc in accommodations:
+                        parsed = self._parse_accommodation(acc)
+                        if parsed is None:
                             continue
 
-                        # Filter for our target accommodation
-                        found = False
-                        for acc in accommodations:
-                            parsed = self._parse_accommodation(acc)
-                            if parsed is None:
-                                continue
+                        found = True
+                        seen_stays.add(stay_key)
 
-                            found = True
-                            seen_stays.add(stay_key)
+                        record = {
+                            "competitor_name": self.competitor_name,
+                            "accommodation_type": self.accommodation_type,
+                            "check_in_date": parsed["check_in"].strftime("%Y-%m-%d"),
+                            "check_out_date": parsed["check_out"].strftime("%Y-%m-%d"),
+                            "price": parsed["price"],
+                            "available": True,
+                            "min_nights": parsed["nights"],
+                            "special_offers": parsed["special_offers"],
+                            "persons": persons,
+                            "segment": self.segment,
+                        }
+                        self.db.save_price(**record)
+                        all_records.append(record)
 
-                            record = {
-                                "competitor_name": self.competitor_name,
-                                "accommodation_type": self.accommodation_type,
-                                "check_in_date": parsed["check_in"].strftime("%Y-%m-%d"),
-                                "check_out_date": parsed["check_out"].strftime("%Y-%m-%d"),
-                                "price": parsed["price"],
-                                "available": True,
-                                "min_nights": parsed["nights"],
-                                "special_offers": parsed["special_offers"],
-                                "persons": persons,
-                                "segment": self.segment,
-                            }
-                            self.db.save_price(**record)
-                            all_records.append(record)
+                        self.logger.debug(
+                            f"  {arr_str} -> {dep_str} ({dur}n): "
+                            f"EUR {parsed['price']:.0f}"
+                        )
+                        break  # Only need first match per stay
 
-                            self.logger.debug(
-                                f"  {arr_str} -> {dep_str} ({dur}n): "
-                                f"EUR {parsed['price']:.0f}"
-                            )
-                            break  # Only need first match per stay
-
-                        if not found:
-                            # Accommodation not available for this date
-                            self.logger.debug(
-                                f"  {arr_str} -> {dep_str} ({dur}n): "
-                                f"not available (sold out or not offered)"
-                            )
+                    if not found:
+                        # Accommodation not available for this date
+                        self.logger.debug(
+                            f"  {arr_str} -> {dep_str} ({dur}n): "
+                            f"not available (sold out or not offered)"
+                        )
 
         except Exception as e:
             errors += 1

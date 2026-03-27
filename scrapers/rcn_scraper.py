@@ -551,19 +551,19 @@ class RcnNoordsterCampingScraper(RcnScraper):
     differ from bungalow pages.
     """
 
-    ACCOMMODATION_SLUG = ""  # No slug - uses /kamperen listing
+    ACCOMMODATION_SLUG = "comfort-kampeerplaats"
     ACCOMMODATION_NAME = "Comfort kampeerplaats"
     SEGMENT = "kampeerplaats"
     DEFAULT_PERSONS = 2
     STAY_DURATIONS = [2, 3, 4, 7]
 
     def __init__(self, db: Database, headless: bool = True, **kwargs):
-        # Call BaseScraper directly to set a custom URL
+        # Call BaseScraper directly to set the detail page URL
         BaseScraper.__init__(
             self,
             competitor_name="RCN De Noordster",
             accommodation_type=self.ACCOMMODATION_NAME,
-            url=f"{BASE_URL}/kamperen",
+            url=f"{BASE_URL}/kamperen/{self.ACCOMMODATION_SLUG}",
             db=db,
             headless=headless,
             rate_limit=5.0,
@@ -572,51 +572,37 @@ class RcnNoordsterCampingScraper(RcnScraper):
         )
 
     def _build_accommodation_url(self, check_in: datetime, check_out: datetime) -> str:
-        """Build URL for camping listing page with date parameters.
-
-        NOTE: The camping listing page may use different URL parameters
-        than the bungalow detail pages. Adjust after testing.
-        """
+        """Build URL for comfort-kampeerplaats detail page with date parameters."""
         arrival = check_in.strftime("%Y-%m-%dT00:00:00")
         departure = check_out.strftime("%Y-%m-%dT00:00:00")
         return (
-            f"{BASE_URL}/kamperen"
+            f"{BASE_URL}/kamperen/{self.ACCOMMODATION_SLUG}"
             f"?arrival={arrival}&departure={departure}"
         )
 
     def _extract_price_from_html(self, page: Page) -> float | None:
-        """Extract camping price from the listing page.
+        """Extract camping price from the detail page.
 
-        On listing pages, multiple accommodation cards are shown.
-        We look for the Comfort kampeerplaats card and extract its price.
-
-        NOTE: Selector may need adjustment after testing with real page.
+        The detail page shows the price as plain text (e.g. "€ 287") near
+        the booking section. Filters out the €35 pitch selection surcharge.
         """
         try:
             price = page.evaluate("""
                 () => {
-                    // Look for cards/tiles with camping accommodation info
-                    const cards = document.querySelectorAll(
-                        '.accommodation-card, .result-card, .product-card, '
-                        + '[class*="accommodation"], [class*="result"], [class*="card"]'
-                    );
+                    const text = document.body.innerText;
+                    const matches = [...text.matchAll(/€\\s*([\\d.,]+)/g)];
+                    if (!matches.length) return null;
 
-                    for (const card of cards) {
-                        const text = (card.innerText || '').toLowerCase();
-                        // Match "comfort" kampeerplaats specifically
-                        if (text.includes('comfort') || text.includes('kampeerplaats')) {
-                            const priceMatch = text.match(/€\\s*([\\d.,]+)/);
-                            if (priceMatch) {
-                                const raw = priceMatch[1]
-                                    .replace(/\\./g, '')
-                                    .replace(',', '.');
-                                const price = parseFloat(raw);
-                                if (price > 5 && price < 10000) return price;
-                            }
-                        }
+                    let prices = [];
+                    for (const m of matches) {
+                        const raw = m[1].replace(/\\./g, '').replace(',', '.');
+                        const p = parseFloat(raw);
+                        // Filter out €35 pitch selection fee and invalid values
+                        if (p > 10 && p < 10000 && p !== 35) prices.push(p);
                     }
 
-                    // Fallback: use parent class method behavior (any price on page)
+                    // Return the smallest valid price (base price)
+                    if (prices.length) return Math.min(...prices);
                     return null;
                 }
             """)
@@ -625,7 +611,6 @@ class RcnNoordsterCampingScraper(RcnScraper):
                 self.logger.debug(f"Found camping price from HTML: {price}")
                 return price
 
-            # Fall back to parent method for broader search
             return super()._extract_price_from_html(page)
 
         except Exception as e:

@@ -186,10 +186,13 @@ class CapfunScraper(BaseScraper):
                     prod_info = product.get("product", {})
                     prod_name = prod_info.get("name", "")
                     prod_type = prod_info.get("type")
-                    capacity = prod_info.get("capacity", 0)
+                    try:
+                        capacity = int(prod_info.get("capacity", 0) or 0)
+                    except (TypeError, ValueError):
+                        capacity = 0
 
                     # Filter by capacity
-                    if self.capacity_min > 0 and (capacity or 0) < self.capacity_min:
+                    if self.capacity_min > 0 and capacity < self.capacity_min:
                         continue
 
                     stays = product.get("stays", [])
@@ -204,7 +207,10 @@ class CapfunScraper(BaseScraper):
 
                             stay_begin = stay.get("begin", "")
                             stay_end = stay.get("end", "")
-                            stay_duration = stay.get("duration", duration)
+                            try:
+                                stay_duration = int(stay.get("duration", duration))
+                            except (TypeError, ValueError):
+                                stay_duration = duration
 
                             # Only keep canonical durations
                             if stay_duration not in DURATIONS:
@@ -247,7 +253,7 @@ class CapfunScraper(BaseScraper):
         for key, candidates in grouped.items():
             if self.product_type == 2:
                 # Accommodation: cheapest product with capacity >= 6
-                filtered = [c for c in candidates if (c.get("capacity") or 0) >= 6]
+                filtered = [c for c in candidates if int(c.get("capacity") or 0) >= 6]
                 if not filtered:
                     filtered = candidates
                 chosen = min(filtered, key=lambda x: x["price"])

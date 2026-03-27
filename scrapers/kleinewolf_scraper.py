@@ -109,6 +109,11 @@ class KleineWolfScraper(BaseScraper):
         levels = data.get("response", data).get("levels", [])
 
         for level in levels:
+            # Filter: only process our target level
+            level_ident = str(level.get("ident", ""))
+            if level_ident != str(self.level_id):
+                continue
+
             arrivals = level.get("arrivals", [])
             for arrival in arrivals:
                 arrival_date_str = arrival.get("date", "")
@@ -284,7 +289,13 @@ class KleineWolfCampingScraper(KleineWolfScraper):
 
 
 class KleineWolfAccScraper(KleineWolfScraper):
-    """Camping De Kleine Wolf - Klaverlodge 6p (accommodatie segment)."""
+    """Camping De Kleine Wolf - Klaverlodge 6p (accommodatie segment).
+
+    Uses persons=2 in the API query to ensure all levels are returned
+    (the API filters out levels that don't match the person count).
+    The level_id filter in _parse_response ensures only Klaverlodge data is stored.
+    add_additional_price=True adds the extra person surcharge to the base price.
+    """
 
     def __init__(self, db: Database, headless: bool = True, **kwargs):
         super().__init__(
@@ -293,7 +304,7 @@ class KleineWolfAccScraper(KleineWolfScraper):
             url="https://www.dekleinewolf.nl/verblijven/klaverlodge-6p",
             level_id="56397",
             segment="accommodatie",
-            persons=4,
+            persons=2,  # Use 2 to get all levels; level_id filter selects Klaverlodge
             db=db,
             headless=headless,
             add_additional_price=True,  # Accommodation: add extra person surcharge
