@@ -35,6 +35,18 @@ from scrapers.molecaten_scraper import MolecatenKuierpadBosvenScraper, Molecaten
 from scrapers.zandstuve_scraper import (
     ZandstuveBoslodgeScraper, ZandstuveCampingScraper, ZandstuvePsanitairScraper
 )
+from scrapers.capfun_scraper import (
+    CapfunStoetenslaghCampingScraper, CapfunStoetenslaghAccScraper,
+    CapfunSprookjesCampingScraper, CapfunFruithofCampingScraper,
+    CapfunFruithofAccScraper,
+)
+from scrapers.landal_scraper import (
+    LandalAelderholtScraper, LandalAelderholtPremiumScraper, LandalBartjeScraper,
+)
+from scrapers.kleinewolf_scraper import KleineWolfCampingScraper, KleineWolfAccScraper
+from scrapers.rcn_scraper import (
+    RcnNoordsterMercuriusScraper, RcnNoordsterLunaScraper, RcnNoordsterCampingScraper,
+)
 
 
 def setup_logging(log_dir: str = "logs", level: str = "INFO"):
@@ -104,6 +116,27 @@ def get_scraper_map(db: Database, headless: bool):
 
         # --- Other browser scrapers ---
         "witter_zomer": WitterZomerScraper(db=db, headless=headless),
+
+        # --- Capfun scrapers (HTTP API) ---
+        "stoetenslagh_camping": CapfunStoetenslaghCampingScraper(db=db, headless=headless),
+        "stoetenslagh_acc": CapfunStoetenslaghAccScraper(db=db, headless=headless),
+        "sprookjes_camping": CapfunSprookjesCampingScraper(db=db, headless=headless),
+        "fruithof_camping": CapfunFruithofCampingScraper(db=db, headless=headless),
+        "fruithof_acc": CapfunFruithofAccScraper(db=db, headless=headless),
+
+        # --- Landal scrapers (HTTP API) ---
+        "landal_aelderholt": LandalAelderholtScraper(db=db, headless=headless),
+        "landal_aelderholt_premium": LandalAelderholtPremiumScraper(db=db, headless=headless),
+        "landal_bartje": LandalBartjeScraper(db=db, headless=headless),
+
+        # --- De Kleine Wolf scrapers (HTTP API) ---
+        "kleinewolf_camping": KleineWolfCampingScraper(db=db, headless=headless),
+        "kleinewolf_acc": KleineWolfAccScraper(db=db, headless=headless),
+
+        # --- RCN De Noordster scrapers (Playwright) ---
+        "rcn_mercurius": RcnNoordsterMercuriusScraper(db=db, headless=headless),
+        "rcn_luna": RcnNoordsterLunaScraper(db=db, headless=headless),
+        "rcn_camping": RcnNoordsterCampingScraper(db=db, headless=headless),
 
         # --- Westerbergen (eigen park, alle segmenten) ---
         "westerbergen": WesterbergenScraper(db=db, headless=headless),

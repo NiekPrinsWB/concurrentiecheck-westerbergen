@@ -117,6 +117,74 @@ competitors:
     enabled: true
     persons: 4
 
+  # --- Capfun parks ---
+  stoetenslagh_acc:
+    name: "Het Stoetenslagh"
+    accommodation: "Vakantiehuis 6p"
+    segment: "accommodatie"
+    url: "https://reserveren.capfun.com/camping/capfunstoetenslagh"
+    enabled: true
+    persons: 6
+
+  fruithof_acc:
+    name: "De Fruithof"
+    accommodation: "Vakantiehuis 6p"
+    segment: "accommodatie"
+    url: "https://reserveren.capfun.com/camping/vakantiedefruithof"
+    enabled: true
+    persons: 6
+
+  # --- Landal parks ---
+  landal_aelderholt:
+    name: "Landal Aelderholt"
+    accommodation: "Bungalow 6C"
+    segment: "accommodatie"
+    url: "https://www.landal.nl/parken/landal-aelderholt/prijzen-en-beschikbaarheid"
+    enabled: true
+    persons: 6
+
+  landal_aelderholt_premium:
+    name: "Landal Aelderholt"
+    accommodation: "Bungalow 6EL Premium"
+    segment: "accommodatie"
+    url: "https://www.landal.nl/parken/landal-aelderholt/prijzen-en-beschikbaarheid"
+    enabled: true
+    persons: 6
+
+  landal_bartje:
+    name: "Landal Het Land van Bartje"
+    accommodation: "Bungalow 6D5"
+    segment: "accommodatie"
+    url: "https://www.landal.nl/parken/landal-het-land-van-bartje/prijzen-en-beschikbaarheid"
+    enabled: true
+    persons: 6
+
+  # --- De Kleine Wolf ---
+  kleinewolf_acc:
+    name: "De Kleine Wolf"
+    accommodation: "Klaverlodge 6p"
+    segment: "accommodatie"
+    url: "https://www.dekleinewolf.nl/verblijven/klaverlodge"
+    enabled: true
+    persons: 4
+
+  # --- RCN De Noordster ---
+  rcn_mercurius:
+    name: "RCN De Noordster"
+    accommodation: "Bungalow Mercurius 6p"
+    segment: "accommodatie"
+    url: "https://www.rcn.nl/nl/vakantieparken/nederland/drenthe/rcn-de-noordster/verhuur/bungalow-mercurius"
+    enabled: true
+    persons: 6
+
+  rcn_luna:
+    name: "RCN De Noordster"
+    accommodation: "Bungalow Luna 6p"
+    segment: "accommodatie"
+    url: "https://www.rcn.nl/nl/vakantieparken/nederland/drenthe/rcn-de-noordster/verhuur/bungalow-luna"
+    enabled: true
+    persons: 6
+
   # === SEGMENT: KAMPEERPLAATS ===
   molecaten_camping:
     name: "Molecaten Kuierpad"
@@ -142,12 +210,52 @@ competitors:
     enabled: true
     persons: 2
 
+  stoetenslagh_camping:
+    name: "Het Stoetenslagh"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://reserveren.capfun.com/camping/capfunstoetenslagh"
+    enabled: true
+    persons: 2
+
+  sprookjes_camping:
+    name: "De Sprookjescamping"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://reserveren.capfun.com/camping/sprookjes"
+    enabled: true
+    persons: 2
+
+  fruithof_camping:
+    name: "De Fruithof"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://reserveren.capfun.com/camping/vakantiedefruithof"
+    enabled: true
+    persons: 2
+
+  kleinewolf_camping:
+    name: "De Kleine Wolf"
+    accommodation: "Comfortplaats"
+    segment: "kampeerplaats"
+    url: "https://www.dekleinewolf.nl/verblijven/comfortplaats"
+    enabled: true
+    persons: 2
+
+  rcn_camping:
+    name: "RCN De Noordster"
+    accommodation: "Comfort kampeerplaats"
+    segment: "kampeerplaats"
+    url: "https://www.rcn.nl/nl/vakantieparken/nederland/drenthe/rcn-de-noordster/kamperen"
+    enabled: true
+    persons: 2
+
   ommerland_camping:
     name: "Camping Ommerland"
     accommodation: "Basis Kampeerplaats"
     segment: "kampeerplaats"
     url: "https://www.ommerland.nl/kamperen/basis-kampeerplaats"
-    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    enabled: true
     persons: 2
 
   maurik_camping:
@@ -155,7 +263,7 @@ competitors:
     accommodation: "Kampeerplaats Eksche Waard"
     segment: "kampeerplaats"
     url: "https://www.eilandvanmaurik.nl/kampeerplaatsen"
-    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    enabled: true
     persons: 2
 
   # === SEGMENT: PRIVE SANITAIR ===
@@ -180,7 +288,7 @@ competitors:
     accommodation: "Comfort Kampeerplaats Privé Sanitair"
     segment: "prive_sanitair"
     url: "https://www.ommerland.nl/kamperen/comfort-kampeerplaats-prive-sanitair"
-    enabled: false  # HolidayAgent API geeft geen live prijzen (useLivePrices=0)
+    enabled: true
     persons: 2
 
   # === WESTERBERGEN (eigen park, alle segmenten) ===
