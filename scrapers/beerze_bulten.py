@@ -93,10 +93,10 @@ class BeerzeBultenScraper(BaseScraper):
                         const isUnavailable = cell.classList.contains('price-grid-table-unavailable');
                         const priceText = cell.innerText.trim();
 
-                        // Extract price from text like "€ 524" or "€ 1.065"
-                        const priceMatch = priceText.match(/€\\s*([\\d.]+)/);
+                        // Extract price from text like "€ 524", "€ 1.065" or "€1,000"
+                        const priceMatch = priceText.match(/€\\s*([\\d.,]+)/);
                         const price = priceMatch
-                            ? parseFloat(priceMatch[1].replace('.', '').replace(',', '.'))
+                            ? parseFloat(priceMatch[1].replace(/[.,]/g, ''))
                             : null;
 
                         // Get the booking link if present
