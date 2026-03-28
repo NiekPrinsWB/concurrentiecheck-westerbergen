@@ -284,7 +284,7 @@ class WitterZomerScraper(BaseScraper):
                         )
                         if next_btn and next_btn.is_visible():
                             next_btn.click()
-                            time.sleep(2)  # Wait for new data to render
+                            time.sleep(1)  # Wait for new data to render
                         else:
                             break
                     except Exception as e:

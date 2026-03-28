@@ -181,7 +181,7 @@ def run_pipeline(config: dict, dry_run: bool = False,
             logger.info(f"  {gname}: {', '.join(gkeys)}")
 
         # Run domain groups in parallel (max 6 concurrent to limit resources)
-        max_workers = min(6, len(active_groups))
+        max_workers = min(10, len(active_groups))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(_run_domain_group, gname, gkeys): gname

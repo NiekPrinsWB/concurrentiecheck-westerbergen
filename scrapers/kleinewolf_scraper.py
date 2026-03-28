@@ -45,7 +45,7 @@ class KleineWolfScraper(BaseScraper):
             url=url,
             db=db,
             headless=headless,
-            rate_limit=2.0,
+            rate_limit=0.5,
             **kwargs,
         )
         self.level_id = level_id
