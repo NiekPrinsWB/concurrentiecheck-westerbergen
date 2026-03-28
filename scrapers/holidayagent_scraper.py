@@ -186,10 +186,10 @@ class CampingOmmerlandScraper(HolidayAgentScraper):
     def __init__(self, db: Database, headless: bool = True, **kwargs):
         super().__init__(
             competitor_name="Camping Ommerland",
-            accommodation_type="Bos Villa (6p)",
-            url="https://www.ommerland.nl/huren/bos-villa",
+            accommodation_type="Heide Bungalow (6p)",
+            url="https://www.ommerland.nl/huren/heide-bungalow-6p",
             resort_slug="campingommerland",
-            level_id="20334",
+            level_id="838",
             db=db,
             headless=headless,
             **kwargs,
@@ -200,10 +200,10 @@ class EilandVanMaurikScraper(HolidayAgentScraper):
     def __init__(self, db: Database, headless: bool = True, **kwargs):
         super().__init__(
             competitor_name="Eiland van Maurik",
-            accommodation_type="EilandLodge (6 persoons)",
-            url="https://www.eilandvanmaurik.nl/accommodaties/eilandlodge-6",
+            accommodation_type="Rivierlodge (6 persoons)",
+            url="https://www.eilandvanmaurik.nl/accommodaties/rivierlodge",
             resort_slug="eilandvanmaurik",
-            level_id="9504",
+            level_id="2048",
             db=db,
             headless=headless,
             **kwargs,

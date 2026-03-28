@@ -55,9 +55,9 @@ competitors:
 
   camping_ommerland:
     name: "Camping Ommerland"
-    accommodation: "Bos Villa (6p)"
+    accommodation: "Heide Bungalow (6p)"
     segment: "accommodatie"
-    url: "https://www.ommerland.nl/huren/bos-villa"
+    url: "https://www.ommerland.nl/huren/heide-bungalow-6p"
     enabled: true
     persons: 4
 
@@ -87,9 +87,9 @@ competitors:
 
   eiland_van_maurik:
     name: "Eiland van Maurik"
-    accommodation: "EilandLodge (6 persoons)"
+    accommodation: "Rivierlodge (6 persoons)"
     segment: "accommodatie"
-    url: "https://www.eilandvanmaurik.nl/accommodaties/eilandlodge-6"
+    url: "https://www.eilandvanmaurik.nl/accommodaties/rivierlodge"
     enabled: true
     persons: 4
 
@@ -111,9 +111,9 @@ competitors:
 
   zandstuve_boslodge:
     name: "De Zandstuve"
-    accommodation: "Boslodge DeLuxe (6p)"
+    accommodation: "Vechtdallodge (6p)"
     segment: "accommodatie"
-    url: "https://www.zandstuve.com/accommodaties/nederland-overijssel-boslodge-deluxe-6-personen"
+    url: "https://www.zandstuve.com/holiday-homes/netherlands-province-of-overijssel-vechtdallodge-6-persons"
     enabled: true
     persons: 4
 

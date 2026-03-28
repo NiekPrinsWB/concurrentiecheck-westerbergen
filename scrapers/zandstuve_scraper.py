@@ -2,7 +2,7 @@
 
 Uses the same price-grid-table approach as Beerze Bulten and De Boshoek.
 Supports multiple segments:
-- Accommodatie: Boslodge DeLuxe 6p
+- Accommodatie: Vechtdallodge 6p
 - Kampeerplaats: Comfort camping site (ID 6910)
 - Privé sanitair: Pitch with private bathroom (ID 6900)
 """
@@ -13,14 +13,14 @@ from scrapers.base_scraper import BaseScraper
 
 
 class ZandstuveBoslodgeScraper(BeerzeBultenScraper):
-    """De Zandstuve — Boslodge DeLuxe 6p (accommodatie segment)."""
+    """De Zandstuve — Vechtdallodge 6p (accommodatie segment)."""
 
     def __init__(self, db: Database, headless: bool = True, **kwargs):
         BaseScraper.__init__(
             self,
             competitor_name="De Zandstuve",
-            accommodation_type="Boslodge DeLuxe (6p)",
-            url="https://www.zandstuve.com/holiday-homes/netherlands-province-of-overijssel-boslodge-deluxe-6-persons",
+            accommodation_type="Vechtdallodge (6p)",
+            url="https://www.zandstuve.com/holiday-homes/netherlands-province-of-overijssel-vechtdallodge-6-persons",
             db=db,
             headless=headless,
             **kwargs,
