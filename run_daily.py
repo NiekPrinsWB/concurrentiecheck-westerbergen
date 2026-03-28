@@ -22,12 +22,34 @@ import os
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 import yaml
 
 from database import Database
 from run_scraper import get_scraper_map, setup_logging, load_config
+
+
+# Domain groups: scrapers hitting the same domain run sequentially,
+# different groups run in parallel to avoid rate-limiting conflicts.
+DOMAIN_GROUPS = {
+    "api_centerparcs": ["centerparcs_sandur"],
+    "api_molecaten": ["molecaten_bosven", "molecaten_camping"],
+    "api_ommerland": ["camping_ommerland", "ommerland_camping", "ommerland_psanitair"],
+    "api_maurik": ["eiland_van_maurik", "maurik_camping"],
+    "be_beerzebulten": ["beerze_bulten", "bb_camping", "bb_psanitair"],
+    "be_boshoek": ["de_boshoek"],
+    "be_witteberg": ["de_witte_berg"],
+    "be_zandstuve": ["zandstuve_boslodge", "zandstuve_camping", "zandstuve_psanitair"],
+    "tomm_witterzomer": ["witter_zomer"],
+    "capfun": ["stoetenslagh_camping", "stoetenslagh_acc", "sprookjes_camping",
+               "fruithof_camping", "fruithof_acc"],
+    "api_landal": ["landal_aelderholt", "landal_aelderholt_premium", "landal_bartje"],
+    "api_kleinewolf": ["kleinewolf_camping", "kleinewolf_acc"],
+    "rcn": ["rcn_mercurius", "rcn_luna", "rcn_camping"],
+    "westerbergen": ["westerbergen", "westerbergen_camping", "westerbergen_psanitair"],
+}
 
 
 EXIT_SUCCESS = 0
@@ -92,9 +114,10 @@ def run_pipeline(config: dict, dry_run: bool = False,
         target_end_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
         max_pages = days_ahead // 3 + 10  # ~130 pages for BookingExperts
 
-        # First pass
-        for key, scraper in to_run.items():
-            logger.info(f"\n--- Scraping: {scraper.competitor_name} ---")
+        def _run_scraper(key, scraper):
+            """Run a single scraper and return result dict."""
+            scraper_logger = logging.getLogger("daily")
+            scraper_logger.info(f"\n--- Scraping: {scraper.competitor_name} ({key}) ---")
             t0 = time.time()
             try:
                 results = scraper.run_efficient(
@@ -105,29 +128,88 @@ def run_pipeline(config: dict, dry_run: bool = False,
                 )
                 available = [r for r in results if r.get("available") and r.get("price")]
                 dur = time.time() - t0
-                scrape_results[key] = {
+                result = {
                     "status": "success",
                     "records": len(results),
                     "available": len(available),
                     "duration": dur,
                 }
-                logger.info(
-                    f"  OK: {len(results)} records ({len(available)} beschikbaar), "
-                    f"{dur:.1f}s"
+                scraper_logger.info(
+                    f"  OK: {key} - {len(results)} records "
+                    f"({len(available)} beschikbaar), {dur:.1f}s"
                 )
+                return key, result
             except Exception as e:
                 dur = time.time() - t0
-                scrape_results[key] = {
+                result = {
                     "status": "failed",
                     "records": 0,
                     "available": 0,
                     "duration": dur,
                     "error": str(e),
                 }
-                failed_scrapers.append(key)
-                logger.error(f"  MISLUKT: {e}", exc_info=True)
+                scraper_logger.error(f"  MISLUKT: {key} - {e}", exc_info=True)
+                return key, result
 
-        # Retry failed scrapers
+        def _run_domain_group(group_name, scraper_keys):
+            """Run scrapers in a domain group sequentially, return results."""
+            results = []
+            for key in scraper_keys:
+                if key in to_run:
+                    results.append(_run_scraper(key, to_run[key]))
+            return results
+
+        # Build domain groups from enabled scrapers
+        active_groups = {}
+        assigned_keys = set()
+        for group_name, keys in DOMAIN_GROUPS.items():
+            active_keys = [k for k in keys if k in to_run]
+            if active_keys:
+                active_groups[group_name] = active_keys
+                assigned_keys.update(active_keys)
+
+        # Any scrapers not in a domain group run as their own group
+        for key in to_run:
+            if key not in assigned_keys:
+                active_groups[f"_ungrouped_{key}"] = [key]
+
+        logger.info(
+            f"Parallel uitvoering: {len(active_groups)} domeingroepen, "
+            f"{len(to_run)} scrapers totaal"
+        )
+        for gname, gkeys in active_groups.items():
+            logger.info(f"  {gname}: {', '.join(gkeys)}")
+
+        # Run domain groups in parallel (max 6 concurrent to limit resources)
+        max_workers = min(6, len(active_groups))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_run_domain_group, gname, gkeys): gname
+                for gname, gkeys in active_groups.items()
+            }
+            for future in as_completed(futures):
+                group_name = futures[future]
+                try:
+                    group_results = future.result()
+                    for key, result in group_results:
+                        scrape_results[key] = result
+                        if result["status"] == "failed":
+                            failed_scrapers.append(key)
+                except Exception as e:
+                    logger.error(f"  Groep {group_name} crash: {e}", exc_info=True)
+                    # Mark all scrapers in this group as failed
+                    for key in active_groups[group_name]:
+                        if key in to_run:
+                            scrape_results[key] = {
+                                "status": "failed",
+                                "records": 0,
+                                "available": 0,
+                                "duration": 0,
+                                "error": str(e),
+                            }
+                            failed_scrapers.append(key)
+
+        # Retry failed scrapers (sequentially)
         if failed_scrapers and retry_failed:
             for attempt in range(1, max_retries + 1):
                 retry_list = list(failed_scrapers)
@@ -137,34 +219,10 @@ def run_pipeline(config: dict, dry_run: bool = False,
                 for key in retry_list:
                     scraper = to_run[key]
                     logger.info(f"  Retry: {scraper.competitor_name}")
-                    t0 = time.time()
-                    try:
-                        results = scraper.run_efficient(
-                            max_pages=max_pages,
-                            months_ahead=months_ahead,
-                            target_end_date=target_end_date,
-                            persons=persons,
-                        )
-                        available = [r for r in results if r.get("available") and r.get("price")]
-                        dur = time.time() - t0
-                        scrape_results[key] = {
-                            "status": "success (retry)",
-                            "records": len(results),
-                            "available": len(available),
-                            "duration": dur,
-                        }
-                        logger.info(f"    OK na retry: {len(results)} records, {dur:.1f}s")
-                    except Exception as e:
-                        dur = time.time() - t0
-                        scrape_results[key] = {
-                            "status": "failed",
-                            "records": 0,
-                            "available": 0,
-                            "duration": dur,
-                            "error": str(e),
-                        }
+                    rkey, result = _run_scraper(key, scraper)
+                    scrape_results[rkey] = result
+                    if result["status"] == "failed":
                         failed_scrapers.append(key)
-                        logger.error(f"    Retry mislukt: {e}")
 
     # --- Phase 2 & 3: Analytics + Excel Dashboard per segment ---
     analytics_result = None  # Will hold the 'accommodatie' result for backwards compat

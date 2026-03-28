@@ -16,7 +16,7 @@ class BaseScraper(ABC):
 
     def __init__(self, competitor_name: str, accommodation_type: str,
                  url: str, db: Database, headless: bool = True,
-                 rate_limit: float = 5.0, max_retries: int = 3,
+                 rate_limit: float = 2.0, max_retries: int = 3,
                  page_timeout: int = 60000):
         self.competitor_name = competitor_name
         self.accommodation_type = accommodation_type

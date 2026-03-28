@@ -387,8 +387,6 @@ class BeerzeBultenScraper(BaseScraper):
                             time.sleep(2)
                         continue
 
-                    time.sleep(1)
-
                     # Get current grid date range for logging
                     date_range = self._get_grid_date_range(page)
                     range_str = f"{date_range[0]} - {date_range[1]}" if date_range else "unknown"
@@ -466,7 +464,7 @@ class BeerzeBultenScraper(BaseScraper):
                     self._wait_rate_limit()
                     page.goto(later_url, wait_until="domcontentloaded", timeout=60000)
                     page.evaluate('document.getElementById("reservation_section")?.scrollIntoView()')
-                    time.sleep(2)
+                    time.sleep(1)
 
             finally:
                 browser.close()

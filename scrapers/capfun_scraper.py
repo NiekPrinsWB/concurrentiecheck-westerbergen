@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 DURATIONS = [2, 3, 4, 7]
 
 # Step size between arrival dates (days)
-DATE_STEP = 3
+# The API returns nearby stays per call, so 7-day steps give sufficient coverage
+DATE_STEP = 7
 
 
 class CapfunScraper(BaseScraper):
@@ -59,7 +60,7 @@ class CapfunScraper(BaseScraper):
             url=url,
             db=db,
             headless=headless,
-            rate_limit=2.5,
+            rate_limit=1.0,
             **kwargs,
         )
         self.camping_param = camping_param
